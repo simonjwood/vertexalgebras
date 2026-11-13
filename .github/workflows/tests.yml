@@ -60,7 +60,7 @@ jobs:
           python -m pip install build twine
           python -m build --sdist
           python -m twine check --strict dist/*
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: sdist
           path: dist/*.tar.gz
@@ -83,11 +83,11 @@ jobs:
           - {os: ubuntu-24.04,     sage: '10.10', python: '3.14'}
           - {os: ubuntu-24.04,     sage: '10.9', python: '3.14'}
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: sdist
           path: dist
-      - uses: mamba-org/setup-micromamba@v2
+      - uses: mamba-org/setup-micromamba@v3
         with:
           environment-name: sage
           create-args: >-
@@ -130,11 +130,11 @@ jobs:
           - {os: macos-15-intel,   sage: '10.10', python: '3.13'}   # Intel
           - {os: macos-15,         sage: '10.9', python: '3.14'}
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v7
         with:
           name: sdist
           path: dist
-      - uses: mamba-org/setup-micromamba@v2
+      - uses: mamba-org/setup-micromamba@v3
         with:
           environment-name: sage
           create-args: >-
@@ -169,7 +169,7 @@ jobs:
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v5
-      - uses: mamba-org/setup-micromamba@v2
+      - uses: mamba-org/setup-micromamba@v3
         with:
           environment-name: sage
           create-args: >-
@@ -192,7 +192,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
-      - uses: mamba-org/setup-micromamba@v2
+      - uses: mamba-org/setup-micromamba@v3
         with:
           environment-name: sage
           create-args: >-
