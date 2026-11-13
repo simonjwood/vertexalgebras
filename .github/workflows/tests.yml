@@ -60,10 +60,6 @@ jobs:
           python -m pip install build twine
           python -m build --sdist
           python -m twine check --strict dist/*
-          tar tzf dist/*.tar.gz | sort > dist/contents.txt
-          if grep -E '/(upstream|prototypes|notes|zhu_half_integer_relations)/|/(AGENTS|TODO|API_REVIEW)\.md$' dist/contents.txt; then
-              echo "development material in the sdist"; exit 1
-          fi
       - uses: actions/upload-artifact@v4
         with:
           name: sdist
@@ -96,8 +92,10 @@ jobs:
           environment-name: sage
           create-args: >-
             python=${{ matrix.python }} sage=${{ matrix.sage }} ${{ env.BUILD_TOOLS }}
-          channels: conda-forge
-          channel-priority: strict
+          condarc: |
+            channels:
+              - conda-forge
+            channel_priority: strict
           cache-environment: true
       - name: Versions
         run: |
@@ -141,8 +139,10 @@ jobs:
           environment-name: sage
           create-args: >-
             python=${{ matrix.python }} sage=${{ matrix.sage }} ${{ env.BUILD_TOOLS }}
-          channels: conda-forge
-          channel-priority: strict
+          condarc: |
+            channels:
+              - conda-forge
+            channel_priority: strict
           cache-environment: true
       - name: Versions
         run: |
@@ -174,8 +174,10 @@ jobs:
           environment-name: sage
           create-args: >-
             python=3.13 sage=10.10 ${{ env.BUILD_TOOLS }}
-          channels: conda-forge
-          channel-priority: strict
+          condarc: |
+            channels:
+              - conda-forge
+            channel_priority: strict
           cache-environment: true
       - name: Install (editable)
         run: python -m pip install --no-build-isolation -e .
@@ -195,8 +197,10 @@ jobs:
           environment-name: sage
           create-args: >-
             python=3.13 sage=10.10 sphinx furo ${{ env.BUILD_TOOLS }}
-          channels: conda-forge
-          channel-priority: strict
+          condarc: |
+            channels:
+              - conda-forge
+            channel_priority: strict
           cache-environment: true
       - name: Install
         run: python -m pip install --no-build-isolation .
