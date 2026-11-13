@@ -220,7 +220,7 @@ jobs:
       - name: System packages
         run: |
           pacman -Syu --noconfirm --needed sagemath base-devel git \
-              meson meson-python ninja cython pkgconf flint gmp python-pip
+              meson meson-python ninja cython pkgconf flint gmp python-pip python-pytest
           sage --version
       - uses: actions/checkout@v5
       - name: Install into a venv over the system Sage (PEP 668)

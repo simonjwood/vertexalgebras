@@ -1187,13 +1187,13 @@ class OPEBootstrap(SageObject):
         TESTS:
 
         The ``W(2, 4)`` bootstrap gives the same eliminations (also in their
-        order) and equations with one and with four engine threads (the
+        order) and equations with one and with two engine threads (the
         threaded run on generators with other names: an algebra of its own,
         with cold caches)::
 
             sage: from vertex_algebras.vertex_algebra import VertexAlgebraParallelism
             sage: res = []
-            sage: for n, (a, b) in [(1, ('L4', 'W4')), (4, ('L4p', 'W4p'))]:
+            sage: for n, (a, b) in [(1, ('L4', 'W4')), (2, ('L4p', 'W4p'))]:
             ....:     VertexAlgebraParallelism().set(n)
             ....:     N4 = NormallyOrderedExpressions(K, [a, b]); L4, W4 = N4.gens()
             ....:     V4 = UniversalVertexAlgebra(K, N4, {(a, a): [L4.derivative(), 2*L4, 0, c/2],

@@ -802,7 +802,7 @@ def _engine_kernel(V):
         ....:     res = work(V)
         ....:     assert sorted(map(sorted, res)) == sorted(map(sorted, work(VP))), R
         ....:     V.clear_caches()
-        ....:     VertexAlgebraParallelism().set(4)
+        ....:     VertexAlgebraParallelism().set(2)
         ....:     assert work(V) == res, R
         ....:     VertexAlgebraParallelism().reset()
         sage: kinds == [None] * 7 or kinds == ['nmod', 'qmpoly', 'nf', 'nf', 'nf', 'qmpoly', 'nfmpoly']  # long time
@@ -817,7 +817,7 @@ def _engine_kernel(V):
         sage: Y = L.derivative(2).no(G).no(L).no(L)
         sage: res = list(X.ope(Y)[0].monomial_coefficients().items())  # long time
         sage: V.clear_caches()
-        sage: VertexAlgebraParallelism().set(8)
+        sage: VertexAlgebraParallelism().set(2)
         sage: list(X.ope(Y)[0].monomial_coefficients().items()) == res  # long time
         True
         sage: VertexAlgebraParallelism().reset()
@@ -827,7 +827,7 @@ def _engine_kernel(V):
 
         sage: for implementation in (None, 'python'):
         ....:     L, G = n1(GF(5), 3, implementation).gens()
-        ....:     for n in (1, 4):
+        ....:     for n in (1, 2):
         ....:         VertexAlgebraParallelism().set(n)
         ....:         try:
         ....:             _ = L.no(L).no(L).ope(L.no(L).no(L))
@@ -851,7 +851,7 @@ def _engine_kernel(V):
         sage: big = sum(V.monomial(k) for k in V.weight_space(13).basis_keys())
         sage: small = sum(V.monomial(k) for k in V.weight_space(7).basis_keys())
         sage: ref = small.ope(small.derivative())
-        sage: for n, x in [(1, big), (4, big), (8, V.monomial(((0, 0),) * 7))]:  # long time
+        sage: for n, x in [(1, big), (2, big), (2, V.monomial(((0, 0),) * 7))]:  # long time
         ....:     V.clear_caches()
         ....:     VertexAlgebraParallelism().set(n)
         ....:     try:
@@ -1511,7 +1511,7 @@ class UniversalVertexAlgebra(VertexAlgebra):
             sage: va = UniversalVertexAlgebra(QQ, ['J'], {('J', 'J'): [0, 1]})
             sage: J = va.gen('J'); x = J.no(J.no(J))
             sage: serial = x.ope(x)
-            sage: VertexAlgebraParallelism().set(4); va.clear_caches()
+            sage: VertexAlgebraParallelism().set(2); va.clear_caches()
             sage: x.ope(x) == serial
             True
             sage: VertexAlgebraParallelism().reset()

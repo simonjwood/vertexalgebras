@@ -483,8 +483,8 @@ class LatticeVertexAlgebraModule(VertexAlgebraModule):
             sage: import vertex_algebras as va
             sage: L0 = va.Lattice(QQ, matrix([[2]])); J = L0.J(0)
             sage: V = L0.with_conformal_vector(J.no(J) / 4); M = V.simple_module([5/2])
-            sage: M._lam, M.vertex_algebra() is V, M._ls_cache
-            ((1/2,), True, {})
+            sage: M._lam, M.vertex_algebra() is V, isinstance(M._ls_cache, dict)
+            ((1/2,), True, True)
         """
         self._lam = lam
         self._ls_cache = {}

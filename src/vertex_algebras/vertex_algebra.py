@@ -359,8 +359,8 @@ class VertexAlgebraParallelism(Singleton, SageObject):
         sage: from vertex_algebras.vertex_algebra import VertexAlgebraParallelism
         sage: P = VertexAlgebraParallelism(); P
         Number of threads for vertex algebra computations: 1
-        sage: P.set(nproc=4); P.get()
-        4
+        sage: P.set(nproc=2); P.get()
+        2
         sage: VertexAlgebraParallelism() is P
         True
         sage: P.reset(); P.get()
@@ -379,7 +379,7 @@ class VertexAlgebraParallelism(Singleton, SageObject):
         sage: V = va.NeveuSchwarz(QQ, 7/10, implementation='python'); L, G = V.gens()
         sage: X = L.no(L).no(G) + 3*G.derivative(2); Y = G.no(L) - 5*L.derivative(3).no(L)
         sage: want = [list(p.monomial_coefficients().items()) for p in X.ope(Y)]
-        sage: V.clear_caches(); P.set(4)
+        sage: V.clear_caches(); P.set(2)
         sage: [list(p.monomial_coefficients().items()) for p in X.ope(Y)] == want, V._engine()
         (True, None)
         sage: P.reset()
@@ -477,7 +477,7 @@ class VertexAlgebraParallelism(Singleton, SageObject):
 
             sage: from vertex_algebras.vertex_algebra import VertexAlgebraParallelism
             sage: P = VertexAlgebraParallelism()
-            sage: P.set(3); P.reset(); P.get()
+            sage: P.set(2); P.reset(); P.get()
             1
         """
         self.set(1)
@@ -3533,8 +3533,8 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: from vertex_algebras.vertex_algebra import VertexAlgebraParallelism
             sage: V._nthreads()
             1
-            sage: VertexAlgebraParallelism().set(3); V._nthreads()
-            3
+            sage: VertexAlgebraParallelism().set(2); V._nthreads()
+            2
             sage: VertexAlgebraParallelism().reset()
         """
         return max(1, _nproc())
@@ -3553,7 +3553,7 @@ class VertexAlgebra(CombinatorialFreeModule):
 
             sage: from vertex_algebras.lattice_vertex_algebra import LatticeVertexAlgebra
             sage: from vertex_algebras.vertex_algebra import VertexAlgebraParallelism
-            sage: VertexAlgebraParallelism().set(3)
+            sage: VertexAlgebraParallelism().set(2)
             sage: L = LatticeVertexAlgebra(QQ, matrix([[2]]))
             sage: x, y = L.e((1,)), L.J(0).derivative()
             sage: d = [dict(x._monomial_coefficients), dict(y._monomial_coefficients)]

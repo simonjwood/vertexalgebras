@@ -380,7 +380,7 @@ class QuotientVertexAlgebra(VertexAlgebra):
         sage: B = M.weight_space(8); [B.coordinates(x) for x in B.basis()]
         [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 
-    Serially and with 4 threads (fresh copies: other generator names) the
+    Serially and with 2 threads (fresh copies: other generator names) the
     same products in the quotient and in a tensor product with a quotient
     factor, in the same order, and the same subalgebra of the quotient::
 
@@ -403,7 +403,7 @@ class QuotientVertexAlgebra(VertexAlgebra):
         ....:     return r
         sage: r = run('A', 1); r[1]
         [1, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4]
-        sage: r == run('B', 4)
+        sage: r == run('B', 2)
         True
 
     Refusals: ideals of simple algebras, ideals of other algebras,

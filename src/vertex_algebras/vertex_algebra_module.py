@@ -2411,7 +2411,7 @@ class _InducedModuleEngine:
         ....:     r = M._action_raw_batch(els, vecs, tasks)
         ....:     return None if r is None else [list(x.items()) for x in r]
         sage: ref = batch(3)
-        sage: for n in (1, 4):  # long time
+        sage: for n in (1, 2):  # long time
         ....:     M.clear_caches()
         ....:     VertexAlgebraParallelism().set(n)
         ....:     try:

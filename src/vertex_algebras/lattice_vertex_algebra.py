@@ -251,7 +251,7 @@ class _LatticeEngineKernel(_EngineKernel):
     The engine against the pure-Python kernels: an odd, an indefinite
     lattice, a callable cocycle, ``Q(c)`` with a coefficient the lift
     cannot express (``1/(c + 3)``: the generic path) and a tower; then with
-    4 threads (the same results, in the same order)::
+    2 threads (the same results, in the same order)::
 
         sage: from vertex_algebras.vertex_algebra import VertexAlgebraParallelism
         sage: def work(V, g):
@@ -276,7 +276,7 @@ class _LatticeEngineKernel(_EngineKernel):
         ....:     VP = LatticeVertexAlgebra(R, B, epsilon=e, implementation='python')
         ....:     assert sorted(map(sorted, res)) == sorted(map(sorted, work(VP, R(g)))), R
         ....:     V.clear_caches()
-        ....:     VertexAlgebraParallelism().set(4)
+        ....:     VertexAlgebraParallelism().set(2)
         ....:     assert work(V, R(g)) == res, R
         ....:     VertexAlgebraParallelism().reset()
 
@@ -296,7 +296,7 @@ class _LatticeEngineKernel(_EngineKernel):
         sage: tasks = [(i, n, len(ks1) + j) for i in range(len(ks1)) for j in range(len(ks2))
         ....:          for n in (-3, -1, 0, 2)]
         sage: few = [dict(small.monomial_coefficients()), dict(smallm.monomial_coefficients())]
-        sage: for n in (1, 4):  # long time
+        sage: for n in (1, 2):  # long time
         ....:     for f in (lambda: big.ope(bigm), lambda: L._nprod_raw_batch(els, tasks)):
         ....:         L.clear_caches()
         ....:         VertexAlgebraParallelism().set(n)

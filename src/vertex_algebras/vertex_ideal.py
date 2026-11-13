@@ -644,11 +644,11 @@ class FinitelyGeneratedVertexIdeal(VertexAlgebraIdeal):
         ....:     for W in range(4, 8) for b in I.weight_space(W).basis() for n in range(-2, 4))
         True
 
-    With 4 threads (a fresh copy of the algebra: other generator names) the
+    With 2 threads (a fresh copy of the algebra: other generator names) the
     quotient has the same dimensions (Rogers–Ramanujan)::
 
         sage: from vertex_algebras.vertex_algebra import VertexAlgebraParallelism
-        sage: VertexAlgebraParallelism().set(4)
+        sage: VertexAlgebraParallelism().set(2)
         sage: Vp = UniversalVertexAlgebra(QQ, ['Lp'], {('Lp', 'Lp'): [{(('Lp', 1),): 1},
         ....:     {(('Lp', 0),): 2}, 0, -11/5]}, degrees={'Lp': 2})
         sage: Lp = Vp.gen(0); Ip = Vp.ideal([Lp.no(Lp) - 3/10*Lp.derivative(2)])

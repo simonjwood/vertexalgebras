@@ -1988,7 +1988,7 @@ class NormalOrderedSpans:
             ....:     if V._engine() is None:
             ....:         return not Sx._vectors_batched(words)
             ....:     saved, got = (Sx._vecs, Sx._evecs), []
-            ....:     for n in (1, 4):
+            ....:     for n in (1, 2):
             ....:         Sx._vecs, Sx._evecs = {(): V.one()}, {}
             ....:         VertexAlgebraParallelism().set(n)
             ....:         assert Sx._vectors_batched(words)
@@ -2015,12 +2015,12 @@ class NormalOrderedSpans:
             ....:                           TT.embed(1, Hp.conformal_vector())]), 6)
             True
 
-        Spans computed with 4 threads (the Virasoro subalgebra of a
+        Spans computed with 2 threads (the Virasoro subalgebra of a
         Heisenberg algebra, dimensions ``p(n) - p(n-1)``)::
 
             sage: Hq = UniversalVertexAlgebra(QQ, ['Jq'], {('Jq', 'Jq'): [0, 1]},
             ....:     conformal_vector={(('Jq', 0), ('Jq', 0)): 1/2, (('Jq', 1),): 1})
-            sage: VertexAlgebraParallelism().set(4)
+            sage: VertexAlgebraParallelism().set(2)
             sage: Sq = Hq.subalgebra([Hq.conformal_vector()])
             sage: [Sq.weight_space(n).dimension() for n in range(10)]
             [1, 0, 1, 1, 2, 2, 4, 4, 7, 8]

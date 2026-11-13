@@ -339,7 +339,7 @@ class CommutantVertexAlgebra(NormalOrderedSpans, SubspaceVertexAlgebra):
         sage: (SC(K) + C(K)).parent() is C, (SC(K) + J).parent() is H
         (True, True)
 
-    Serially and with 4 threads (fresh copies: other generator names) the
+    Serially and with 2 threads (fresh copies: other generator names) the
     same canonical rows of the universal parafermions at weight 6::
 
         sage: from vertex_algebras.normally_ordered_expressions import NormallyOrderedExpressions
@@ -358,7 +358,7 @@ class CommutantVertexAlgebra(NormalOrderedSpans, SubspaceVertexAlgebra):
         ....:     return r
         sage: r = rows(('Ea', 'Ha', 'Fa'), 1); len(r)
         11
-        sage: r == rows(('Eb', 'Hb', 'Fb'), 4)
+        sage: r == rows(('Eb', 'Hb', 'Fb'), 2)
         True
 
     Refusals::

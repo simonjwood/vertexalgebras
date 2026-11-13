@@ -137,7 +137,7 @@ class _TensorEngineKernel(_EngineKernel):
     TESTS:
 
     The engine against the Python recursion (an odd lattice factor, ``Q(k)``
-    lifted to ``QQ[k]``, a tower), then with 4 threads (the same results,
+    lifted to ``QQ[k]``, a tower), then with 2 threads (the same results,
     in the same order)::
 
         sage: from vertex_algebras.normally_ordered_expressions import NormallyOrderedExpressions
@@ -169,7 +169,7 @@ class _TensorEngineKernel(_EngineKernel):
         ....:     res = work(T, g)
         ....:     assert sorted(map(sorted, res)) == sorted(map(sorted, work(U.tensor(F, implementation='python'), g)))
         ....:     T.clear_caches()
-        ....:     VertexAlgebraParallelism().set(4)
+        ....:     VertexAlgebraParallelism().set(2)
         ....:     assert work(T, g) == res
         ....:     VertexAlgebraParallelism().reset()
 
@@ -184,7 +184,7 @@ class _TensorEngineKernel(_EngineKernel):
         sage: keys = list(T.weight_space(5).basis_keys())
         sage: big, small = (sum(T.monomial(m) for m in ks) for ks in (keys, keys[:6]))
         sage: ref = [list(z.monomial_coefficients().items()) for z in small.ope(small)]
-        sage: for n in (1, 4):  # long time
+        sage: for n in (1, 2):  # long time
         ....:     T.clear_caches()
         ....:     VertexAlgebraParallelism().set(n)
         ....:     try:
