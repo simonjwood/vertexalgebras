@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+*~
+*.ipynb_checkpoints/
+examples/triplet_data/
+
+# build (meson-python)
+build/
+dist/
+*.egg-info/
+.mesonpy-*/
+
+# reference manual (sphinx-build -b html doc doc/_build/html)
+doc/_build/
+# reports of tests/platform_report.sh
+platform_report_*.txt
+# macOS Finder metadata
+.DS_Store

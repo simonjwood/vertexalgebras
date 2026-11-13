@@ -1,0 +1,235 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) Cardiff University 2026
+#
+# Jobs:
+#   sdist     build the source distribution once (what PyPI will get)
+#   test      install that sdist into a conda-forge Sage and run the
+#             installed package's doctests (--long): Linux x86_64 / arm64,
+#             the oldest and newest Sage and Python
+#   macos     the same on macOS arm64 / Intel, only when started by hand
+#             (Actions -> tests -> Run workflow)
+#   full      the developer suite on Linux: editable install,
+#             tests/run_all.sh (doctests + every tests/*.sage script) and
+#             tests/run_all.sh --fallback (pure Python)
+#   docs      the reference manual builds without warnings (nothing is
+#             uploaded or published)
+#   arch      optional: Arch Linux's own sagemath package (system FLINT,
+#             system compilers); allowed to fail
+
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * 1'      # Mondays: catches new conda-forge Sage builds
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash -el {0}       # login shell: activates the micromamba env
+
+env:
+  # build tools from conda-forge (pip --no-build-isolation uses these)
+  BUILD_TOOLS: >-
+    meson meson-python ninja pkg-config cython cxx-compiler pip
+
+jobs:
+  sdist:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Build the source distribution
+        # meson-python's sdist is `meson dist` = git archive of the commit,
+        # honouring .gitattributes export-ignore; needs FLINT / GMP headers
+        # only to configure, so build them from apt
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libflint-dev libgmp-dev ninja-build pkg-config
+          python -m pip install build twine
+          python -m build --sdist
+          python -m twine check --strict dist/*
+          tar tzf dist/*.tar.gz | sort > dist/contents.txt
+          if grep -E '/(upstream|prototypes|notes|zhu_half_integer_relations)/|/(AGENTS|TODO|API_REVIEW)\.md$' dist/contents.txt; then
+              echo "development material in the sdist"; exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          retention-days: 7
+
+  test:
+    needs: sdist
+    name: ${{ matrix.os }}, Sage ${{ matrix.sage }}, Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # newest Sage on every platform conda-forge builds it for
+          - {os: ubuntu-24.04,     sage: '10.10', python: '3.13'}
+          - {os: ubuntu-24.04-arm, sage: '10.10', python: '3.13'}
+          # the supported range (pyproject.toml: Python >= 3.12; Sage >= 10.9, _MIN_SAGE)
+          - {os: ubuntu-24.04,     sage: '10.10', python: '3.12'}
+          - {os: ubuntu-24.04,     sage: '10.10', python: '3.14'}
+          - {os: ubuntu-24.04,     sage: '10.9', python: '3.14'}
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: sdist
+          path: dist
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: sage
+          create-args: >-
+            python=${{ matrix.python }} sage=${{ matrix.sage }} ${{ env.BUILD_TOOLS }}
+          channels: conda-forge
+          channel-priority: strict
+          cache-environment: true
+      - name: Versions
+        run: |
+          uname -a
+          python --version
+          sage --version
+          micromamba list | grep -E '^ *(sage|python|flint|gmp|cython|meson) '
+      - name: Install from the sdist
+        run: python -m pip install --no-build-isolation -v dist/*.tar.gz
+      - name: Compiled engines and their libraries
+        run: |
+          python -c "import vertex_algebras; print(vertex_algebras.__version__)"
+          so=$(python -c 'import vertex_algebras._universal_engine as m; print(m.__file__)')
+          if [ "$(uname)" = Darwin ]; then otool -L "$so"; else ldd "$so"; fi
+      - name: Doctests of the installed package (C++ engines)
+        run: |
+          cd "$RUNNER_TEMP"     # not the checkout: test what was installed
+          PKG=$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')
+          python -m sage.doctest --long --warn-long 60 --random-seed=0 "$PKG"
+
+  macos:
+    needs: sdist
+    if: github.event_name == 'workflow_dispatch'
+    name: ${{ matrix.os }}, Sage ${{ matrix.sage }}, Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: macos-15,         sage: '10.10', python: '3.13'}   # Apple Silicon
+          - {os: macos-15-intel,   sage: '10.10', python: '3.13'}   # Intel
+          - {os: macos-15,         sage: '10.9', python: '3.14'}
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: sdist
+          path: dist
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: sage
+          create-args: >-
+            python=${{ matrix.python }} sage=${{ matrix.sage }} ${{ env.BUILD_TOOLS }}
+          channels: conda-forge
+          channel-priority: strict
+          cache-environment: true
+      - name: Versions
+        run: |
+          uname -a
+          python --version
+          sage --version
+          micromamba list | grep -E '^ *(sage|python|flint|gmp|cython|meson) '
+      - name: Install from the sdist
+        run: python -m pip install --no-build-isolation -v dist/*.tar.gz
+      - name: Compiled engines and their libraries
+        run: |
+          python -c "import vertex_algebras; print(vertex_algebras.__version__)"
+          so=$(python -c 'import vertex_algebras._universal_engine as m; print(m.__file__)')
+          if [ "$(uname)" = Darwin ]; then otool -L "$so"; else ldd "$so"; fi
+      - name: Doctests of the installed package (C++ engines)
+        run: |
+          cd "$RUNNER_TEMP"     # not the checkout: test what was installed
+          PKG=$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')
+          python -m sage.doctest --long --warn-long 60 --random-seed=0 "$PKG"
+
+  full:
+    name: full suite (Linux, editable install)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v5
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: sage
+          create-args: >-
+            python=3.13 sage=10.10 ${{ env.BUILD_TOOLS }}
+          channels: conda-forge
+          channel-priority: strict
+          cache-environment: true
+      - name: Install (editable)
+        run: python -m pip install --no-build-isolation -e .
+      - name: Doctests and test scripts (C++ engines)
+        run: tests/run_all.sh
+      - name: Doctests in pure Python (VERTEX_ALGEBRAS_NO_ENGINE=1)
+        run: tests/run_all.sh --fallback
+
+  docs:
+    name: reference manual
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: mamba-org/setup-micromamba@v2
+        with:
+          environment-name: sage
+          create-args: >-
+            python=3.13 sage=10.10 sphinx furo ${{ env.BUILD_TOOLS }}
+          channels: conda-forge
+          channel-priority: strict
+          cache-environment: true
+      - name: Install
+        run: python -m pip install --no-build-isolation .
+      - name: Build without warnings (not uploaded, not published)
+        run: sphinx-build -W --keep-going -b html doc "$RUNNER_TEMP/html"
+
+  arch:
+    # Sage as a distribution package rather than from conda: Arch's
+    # sagemath with the system FLINT, GMP and GCC.  Allowed to fail: the
+    # package may lag behind Sage 10.9 (vertex_algebras then refuses to
+    # import), and its Python may be newer than Sage supports.
+    name: Arch Linux sagemath (optional)
+    runs-on: ubuntu-24.04
+    container: archlinux:latest
+    continue-on-error: true
+    timeout-minutes: 150
+    defaults:
+      run:
+        shell: bash {0}
+    steps:
+      - name: System packages
+        run: |
+          pacman -Syu --noconfirm --needed sagemath base-devel git \
+              meson meson-python ninja cython pkgconf flint gmp python-pip
+          sage --version
+      - uses: actions/checkout@v5
+      - name: Install into a venv over the system Sage (PEP 668)
+        run: |
+          python -m venv --system-site-packages "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --no-build-isolation .
+      - name: Doctests of the installed package
+        run: |
+          cd "$RUNNER_TEMP"
+          PY="$RUNNER_TEMP/venv/bin/python"
+          PKG=$("$PY" -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')
+          "$PY" -m sage.doctest --long --warn-long 60 --random-seed=0 "$PKG"

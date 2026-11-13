@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) Cardiff University 2026
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "sage-vertex-algebras: vertex algebras for SageMath"
+type: software
+version: 0.1.0a1
+license: GPL-2.0-or-later
+repository-code: "https://github.com/simonjwood/vertexalgebras"
+authors:
+  - family-names: Raymond
+    given-names: Christopher
+    affiliation: University of Hamburg
+    orcid: "https://orcid.org/0000-0001-5535-0823"
+  - family-names: Wood
+    given-names: Simon
+    affiliation: Cardiff University
+    orcid: "https://orcid.org/0000-0002-8257-0378"

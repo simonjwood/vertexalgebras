@@ -1,0 +1,4 @@
+# Building the reference manual (not needed to install or use the package):
+# sphinx-build -b html doc doc/_build/html, with the package installed.
+sphinx
+furo

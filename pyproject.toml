@@ -1,0 +1,31 @@
+[build-system]
+build-backend = "mesonpy"
+requires = ["meson-python>=0.18", "meson>=1.1", "cython>=3.1"]
+
+[project]
+name = "sage-vertex-algebras"
+dynamic = ["version"]          # from meson.build
+description = "Vertex algebras for SageMath"
+readme = "README.md"
+license = "GPL-2.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.12, <3.15"
+authors = [{name = "Christopher Raymond"}, {name = "Simon Wood"}]
+# SageMath (>= 10.9) is required but not declared: no pip name covers every
+# Sage installation (conda, built from source, distribution packages), so
+# vertex_algebras checks for it when imported.  Install into a Sage
+# environment, e.g. "pip install --no-build-isolation ." (README.md).
+dependencies = []
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: C++",
+    "Programming Language :: Cython",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.urls]
+Repository = "https://github.com/simonjwood/vertexalgebras"
