@@ -58,7 +58,8 @@ change.
   (`M.find_singular`); twists, pullbacks and spectral flow; module
   morphisms (`M.hom(images, N)`, `Hom(M, N).basis()`).
 - **Fusion products** by the Nahm–Gaberdiel–Kausch algorithm
-  (`M.fusion_product(N)`), as quotients up to a depth.
+  (`M.fusion_product(N)`), as quotients up to a depth; for lattice vertex
+  algebras the known product `V_{λ+L} ⊠ V_{μ+L} = V_{λ+μ+L}`.
 - **Extensions:** projective covers, radical and socle series (Loewy
   layers) and Ext^1 up to a depth (`L.projective_cover`,
   `M.radical_series_up_to`, `M.ext1_up_to(N, ...)`).
@@ -279,7 +280,8 @@ vectors are enumerated with [PARI](https://pari.math.u-bordeaux.fr).
   [Li1996]; homomorphisms from the vacuum module [Li1994]; spectral flow
   [Li1997].
 - **Fusion products:** the Nahm–Gaberdiel–Kausch algorithm [Nah1994],
-  [GK1996], with the coproduct formulas of [KR2019].
+  [GK1996], with the coproduct formulas of [KR2019]; the fusion rules of
+  lattice vertex algebras [DL1993].
 - **Extensions:** projective covers from [DLM1998], [He2017]; Ext¹ from a
   presentation [Wei1994, §3.4]; idempotents and Cartan invariants of
   finite-dimensional algebras [CR1962, §54], [Ben1991, §1.7].
@@ -315,6 +317,9 @@ vectors are enumerated with [PARI](https://pari.math.u-bordeaux.fr).
 - [Don1993] C. Dong, *Vertex algebras associated with even lattices*, J.
   Algebra 161 (1993), 245–265,
   [doi:10.1006/jabr.1993.1217](https://doi.org/10.1006/jabr.1993.1217).
+- [DL1993] C. Dong, J. Lepowsky, *Generalized vertex algebras and relative
+  vertex operators*, Birkhäuser, Boston (1993),
+  [doi:10.1007/978-1-4612-0353-7](https://doi.org/10.1007/978-1-4612-0353-7).
 - [DLM1997] C. Dong, H. Li, G. Mason, *Regularity of rational vertex
   operator algebras*, Adv. Math. 132 (1997), 148–166,
   [arXiv:q-alg/9508018](https://arxiv.org/abs/q-alg/9508018).

@@ -66,9 +66,16 @@ keeps a weight ``143/24`` for ``max_depth`` 3 to 7, ``V(21/8)`` has its
 null vector at level 8).  :meth:`FusionQuotientUpTo.special_subspace_dimensions`
 shows ``M^ss`` by depth.
 
-Not yet: ``M ⊠ N`` itself as a module, infinite
-weight spaces (with gradings), twisted sectors; for lattice algebras the
-answer is known (``V_{λ+L} ⊠ V_{μ+L} = V_{λ+μ+L}``) but not built in.
+LATTICE VERTEX ALGEBRAS.  The algorithm needs a finite set of strong
+generators, which a lattice vertex algebra does not have; there the answer
+is known, ``V_{λ+L} ⊠ V_{μ+L} = V_{λ+μ+L}`` for every non-degenerate
+integral lattice (e.g. Dong–Lepowsky [DL1993]_), and ``M.fusion_product(N)``
+gives it (:class:`LatticeFusionProduct`: the product as a module, and
+exact depth quotients with the interface of :class:`FusionQuotientUpTo`),
+for simple modules, the adjoint module and direct sums of these.
+
+Not yet: ``M ⊠ N`` itself as a module (except for lattice algebras),
+infinite weight spaces (with gradings), twisted sectors.
 
 EXAMPLES:
 
@@ -1390,3 +1397,510 @@ class FusionQuotientUpTo(SageObject):
             B = self._A.M._mgrading.B
             grades = [B.element(g) for g in grades]
         return A.module(action, parities=self.parities(), horizontal_grades=grades)
+
+
+###########################################################################
+#  Lattice vertex algebras: the fusion product is known                   #
+###########################################################################
+
+def _lattice_cosets(X):
+    r"""
+    The cosets ``λ`` (canonical representatives) of the simple modules
+    ``V_{λ+L}`` of which the module ``X`` of a lattice vertex algebra is the
+    direct sum: ``X`` a simple module ``V.simple_module(λ)``, the adjoint
+    module (``λ = 0``), or a direct sum of these.
+
+    TESTS::
+
+        sage: import vertex_algebras as va
+        sage: from vertex_algebras.fusion_product import _lattice_cosets
+        sage: V = va.Lattice(QQ, matrix([[2]]))
+        sage: M = V.simple_module([1/2])
+        sage: _lattice_cosets(M), _lattice_cosets(V.adjoint_module())
+        ([(1/2,)], [(0,)])
+        sage: _lattice_cosets(M.direct_sum(M, V.adjoint_module()))
+        [(1/2,), (1/2,), (0,)]
+        sage: _lattice_cosets(M.submodule([M.highest_weight_vector()]))
+        Traceback (most recent call last):
+        ...
+        NotImplementedError: fusion over a lattice vertex algebra is implemented for the simple modules V_(λ+L) (V.simple_module(λ)), the adjoint module and direct sums of these, not for Submodule ...
+    """
+    from .lattice_vertex_algebra_module import LatticeVertexAlgebraModule
+    from .vertex_algebra_module import AdjointModule
+    from .vertex_algebra_submodule import DirectSumOfModules
+    if isinstance(X, LatticeVertexAlgebraModule):
+        return [tuple(X.coset_representative())]
+    if isinstance(X, AdjointModule):
+        return [tuple(QQ.zero() for _ in range(X._V.rank()))]
+    if isinstance(X, DirectSumOfModules):
+        return [c for S in X.summands() for c in _lattice_cosets(S)]
+    raise NotImplementedError(
+        "fusion over a lattice vertex algebra is implemented for the simple "
+        "modules V_(λ+L) (V.simple_module(λ)), the adjoint module and direct "
+        "sums of these, not for {}".format(X))
+
+
+class LatticeFusionProduct(SageObject):
+    r"""
+    The fusion product ``M ⊠ N`` of modules over a lattice vertex algebra
+    ``V_L`` that are direct sums of simple modules: it is known,
+    ``V_{λ+L} ⊠ V_{μ+L} = V_{λ+μ+L}`` for every non-degenerate integral
+    lattice ``L`` (the intertwining operators among lattice modules, e.g.
+    Dong–Lepowsky [DL1993]_), and fusion distributes over direct sums.
+    Built by ``M.fusion_product(N)`` when the vertex algebra is a lattice
+    vertex algebra; :meth:`module` is the product itself, and
+    :meth:`depth_quotient_up_to` gives its depth quotients with the
+    interface of :class:`FusionQuotientUpTo` (exact: there is no window).
+
+    INPUT:
+
+    - ``M``, ``N`` -- modules over the same lattice vertex algebra: simple
+      modules ``V.simple_module(λ)``, the adjoint module, or direct sums of
+      these
+
+    EXAMPLES:
+
+    The ``A_2`` lattice: the cosets of ``L°/L ≅ Z/3`` add::
+
+        sage: import vertex_algebras as va
+        sage: V = va.Lattice(QQ, matrix([[2, -1], [-1, 2]])); J0, J1 = V.J(0), V.J(1)
+        sage: V = V.with_conformal_vector((2*J0.no(J0) + J0.no(J1) + J1.no(J0) + 2*J1.no(J1)) / 6)
+        sage: V0, V1, V2 = V.simple_modules()
+        sage: P = V1.fusion_product(V1); P
+        Fusion product of Module V_(λ+L), λ = (1/3, 2/3), ... and Module V_(λ+L), λ = (1/3, 2/3), ...
+        sage: P.module() is V2, P.is_known_exact()
+        (True, True)
+        sage: F = P.depth_quotient_up_to(1); F.conformal_weights()
+        [(1/3, [1, 1, 1]), (4/3, [1, 1, 1, 1, 1, 1, 1, 1, 1])]
+
+    Direct sums distribute; multiplicities are kept::
+
+        sage: S = V1.fusion_product(V1.direct_sum(V2, V2)); S.module()
+        Direct sum of [Module V_(λ+L), λ = (2/3, 1/3), ..., Module V_(λ+L), λ = (0, 0), ..., Module V_(λ+L), λ = (0, 0), ...]
+        sage: S.depth_quotient_up_to(0).conformal_weights()
+        [(0, [1, 1]), (1/3, [1, 1, 1])]
+
+    The check against the Nahm–Gaberdiel–Kausch algorithm through the
+    Frenkel–Kac isomorphism ``L_1(sl_2) ≅ V_{A_1}``: the doublet fuses to
+    the vacuum on both sides, with the same conformal weights at depth 1::
+
+        sage: A = va.Lattice(QQ, matrix([[2]])); J = A.J(0)
+        sage: A = A.with_conformal_vector(J.no(J) / 4)
+        sage: D = A.simple_module([1/2])
+        sage: Fl = D.fusion_product(D).depth_quotient_up_to(1)
+        sage: Va = va.Affine(QQ, ['A', 1], 1, names=['E', 'H', 'F'], conformal_vector='sugawara')
+        sage: U = Va.zhu_algebra().module({'E': matrix([[0, 1], [0, 0]]),
+        ....:     'H': matrix([[1, 0], [0, -1]]), 'F': matrix([[0, 0], [1, 0]])})
+        sage: Da = Va.induced_module(U).simple_quotient()
+        sage: Fa = Da.fusion_product(Da).depth_quotient_up_to(1, max_depth=4)  # long time
+        sage: Fa.conformal_weights() == Fl.conformal_weights()  # long time
+        True
+        sage: Fl.conformal_weights()
+        [(0, [1]), (1, [1, 1, 1])]
+
+    TESTS::
+
+        sage: V1.fusion_product(V2).module() is V0, V0.fusion_product(V2).module() is V2
+        (True, True)
+        sage: V1.fusion_product(V2) is V1.fusion_product(V2)
+        True
+        sage: W = va.Lattice(QQ, matrix([[4]]))
+        sage: V1.fusion_product(W.simple_module([1/4]))
+        Traceback (most recent call last):
+        ...
+        ValueError: the modules are modules over different vertex algebras
+
+    Odd and indefinite lattices (the module is defined without a conformal
+    vector)::
+
+        sage: Z1 = va.Lattice(QQ, matrix([[1]])); Z1.simple_modules()
+        [Module V_(λ+L), λ = (0), over ...]
+        sage: H = va.Lattice(QQ, matrix([[0, 3], [3, 0]]))
+        sage: M = H.simple_module([1/3, 0]); N = H.simple_module([2/3, 1/3])
+        sage: M.fusion_product(N).module().coset_representative()
+        (0, 1/3)
+    """
+    def __init__(self, M, N):
+        """
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: from vertex_algebras.fusion_product import LatticeFusionProduct
+            sage: V = va.Lattice(QQ, matrix([[2]])); M = V.simple_module([1/2])
+            sage: LatticeFusionProduct(M, M)._cosets
+            [(0,)]
+        """
+        if M._V is not N._V:
+            raise ValueError("the modules are modules over different vertex algebras")
+        self._M, self._N = M, N
+        self._V = V = M._V
+        A, B = _lattice_cosets(M), _lattice_cosets(N)
+        self._cosets = [tuple(V.simple_module([x + y for x, y in zip(a, b)]).coset_representative())
+                        for a in A for b in B]
+        self._module = None
+        self._quotients = {}
+
+    def _repr_(self):
+        """
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); M = V.simple_module([1/2])
+            sage: M.fusion_product(M)
+            Fusion product of Module V_(λ+L), λ = (1/2), ... and Module V_(λ+L), λ = (1/2), ...
+        """
+        return "Fusion product of {} and {}".format(self._M, self._N)
+
+    def factors(self):
+        """
+        The two modules ``(M, N)``.
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); M = V.simple_module([1/2])
+            sage: M.fusion_product(M).factors() == (M, M)
+            True
+        """
+        return (self._M, self._N)
+
+    def summands(self):
+        """
+        The simple modules ``V_{λ+μ+L}`` of the product, one for each pair of
+        summands of ``M`` and ``N`` (with multiplicities).
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); M = V.simple_module([1/2])
+            sage: M.fusion_product(M.direct_sum(V.adjoint_module())).summands()
+            [Module V_(λ+L), λ = (0), ..., Module V_(λ+L), λ = (1/2), ...]
+        """
+        return [self._V.simple_module(list(c)) for c in self._cosets]
+
+    def module(self):
+        """
+        The fusion product as a module: ``V_{λ+μ+L}``, or the direct sum of
+        these for direct sums.
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); M = V.simple_module([1/2])
+            sage: M.fusion_product(M).module() is V.simple_module([0])
+            True
+        """
+        if self._module is None:
+            S = self.summands()
+            if len(S) == 1:
+                self._module = S[0]
+            else:
+                from .vertex_algebra_submodule import DirectSumOfModules
+                self._module = DirectSumOfModules(S)
+        return self._module
+
+    def is_known_exact(self):
+        """
+        ``True``: the product is known, not computed up to a window.
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); M = V.simple_module([1/2])
+            sage: M.fusion_product(M).is_known_exact()
+            True
+        """
+        return True
+
+    def depth_quotient_up_to(self, depth=0, max_depth=None):
+        r"""
+        The depth-``depth`` quotient of ``M ⊠ N``: each summand ``V_{ν+L}``
+        cut off at depth ``depth`` above its own lowest weight (a simple
+        module is generated by any vector, so its vectors of depth ``> d``
+        are the words of modes of degree ``> d`` applied to it).  Exact;
+        ``max_depth`` is accepted for the interface of
+        :meth:`FusionProduct.depth_quotient_up_to` and ignored.
+
+        INPUT:
+
+        - ``depth`` -- (default: 0) a non-negative rational
+        - ``max_depth`` -- ignored
+
+        OUTPUT:
+
+        A :class:`LatticeFusionQuotient` (cached per ``depth``).
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: F = M.fusion_product(M).depth_quotient_up_to(2, max_depth=5); F
+            Depth-2 quotient of the fusion product of ... (exact): dimension 8
+            sage: F.conformal_weights()
+            [(0, [1]), (1, [1, 1, 1]), (2, [1, 1, 1, 1])]
+            sage: M.fusion_product(M).depth_quotient_up_to(-1)
+            Traceback (most recent call last):
+            ...
+            ValueError: the depth must be >= 0
+        """
+        d = QQ(depth)
+        if d < 0:
+            raise ValueError("the depth must be >= 0")
+        F = self._quotients.get(d)
+        if F is None:
+            F = LatticeFusionQuotient(self, d)
+            self._quotients[d] = F
+        return F
+
+
+class LatticeFusionQuotient(FusionQuotientUpTo):
+    r"""
+    The depth-``d`` quotient of a :class:`LatticeFusionProduct`: the vectors
+    of each summand ``V_{ν+L}`` of depth ``<= d`` above its lowest weight.
+    It has the interface of :class:`FusionQuotientUpTo`; :meth:`basis` gives
+    vectors of :meth:`LatticeFusionProduct.module` instead of tensors.
+
+    INPUT:
+
+    - ``P`` -- a :class:`LatticeFusionProduct`
+    - ``d`` -- a non-negative rational number
+
+    EXAMPLES::
+
+        sage: import vertex_algebras as va
+        sage: V = va.Lattice(QQ, matrix([[2]])); J = V.J(0)
+        sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+        sage: F = M.fusion_product(M).depth_quotient_up_to(1)
+        sage: F.basis()
+        [|0>, e^(-1), e^(1), J0]
+        sage: F.zero_mode_matrix(J), F.horizontal_grades(), F.parities()
+        (
+        [ 0  0  0  0]
+        [ 0 -2  0  0]
+        [ 0  0  2  0]
+        [ 0  0  0  0], None, [0, 0, 0, 0]
+        )
+        sage: F.mode_matrix(J, 1)                    # J_(1) J = 2: to the depth-0 quotient
+        [0 0 0 2]
+        sage: F.projection(0)
+        [1 0 0 0]
+
+    TESTS::
+
+        sage: F.special_subspace_dimensions()
+        Traceback (most recent call last):
+        ...
+        NotImplementedError: the fusion product of lattice modules is known: Nahm's special subspace is not computed
+        sage: F.mode_matrix(J, -3)
+        Traceback (most recent call last):
+        ...
+        ValueError: the modes of degree 3 do not act on the depth-1 quotient (degrees -1 .. 1)
+    """
+    def __init__(self, P, d):
+        """
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: from vertex_algebras.fusion_product import LatticeFusionQuotient
+            sage: V = va.Lattice(QQ, matrix([[2]])); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: LatticeFusionQuotient(M.fusion_product(M), 0)._basis
+            [(0, ((), (0,)))]
+        """
+        from sage.arith.functions import lcm
+        self._P, self._d, self._K = P, QQ(d), None
+        self._V = V = P._V
+        self._R = V.base_ring()
+        self._S = S = P.summands()
+        # the conformal weights of a summand differ by multiples of 1/D
+        r = V.rank()
+        units = [tuple(QQ(s) if j == i else QQ.zero() for j in range(r)) for i in range(r) for s in (1, -1)]
+        D = 2 * lcm([QQ(V.degree(V.e(u))).denominator() for u in units] + [1])
+        self._basis = []
+        self._top = []
+        for i, M in enumerate(S):
+            h = QQ(M.highest_weight_vector().degree())
+            self._top.append(h)
+            for k in range(int((self._d * D).floor()) + 1):
+                for m in sorted(M.weight_space(h + QQ((k, D))).basis_keys(), key=M._key_order):
+                    self._basis.append((i, m))
+        self._index = {b: j for j, b in enumerate(self._basis)}
+
+    def _repr_(self):
+        """
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: M.fusion_product(M).depth_quotient_up_to(0)
+            Depth-0 quotient of the fusion product of ... (exact): dimension 1
+        """
+        return "Depth-{} quotient of the {} (exact): dimension {}".format(
+            self._d, "f" + repr(self._P)[1:], self.dimension())
+
+    def basis(self):
+        """
+        The basis: vectors of :meth:`LatticeFusionProduct.module`.
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: M.fusion_product(M.direct_sum(M)).depth_quotient_up_to(0).basis()
+            [[0] |0>, [1] |0>]
+        """
+        R = self._P.module()
+        if len(self._S) == 1:
+            return [R.monomial(m) for _, m in self._basis]
+        return [R.embed(i, self._S[i].monomial(m)) for i, m in self._basis]
+
+    def _coords_of(self, i, x):
+        """
+        The coordinates of the vector ``x`` of summand ``i``, the components
+        of depth ``> d`` dropped.
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: F = M.fusion_product(M).depth_quotient_up_to(0)
+            sage: F._coords_of(0, J.no(F._S[0].monomial(((), (0,)))))
+            (0)
+        """
+        v = [self._R.zero()] * len(self._basis)
+        for m, c in x.monomial_coefficients().items():
+            j = self._index.get((i, m))
+            if j is not None:
+                v[j] = c
+        from sage.modules.free_module_element import vector
+        return vector(self._R, v)
+
+    def mode_matrix(self, a, n):
+        r"""
+        The matrix of ``a_(n)``, ``a`` homogeneous of weight ``h``, of degree
+        ``k = h - 1 - n``: on the depth-``d`` quotient for ``0 <= k <= d``, to
+        the depth-``(d + k)`` quotient for ``-d <= k < 0`` (as for
+        :meth:`FusionQuotientUpTo.mode_matrix`).
+
+        INPUT:
+
+        - ``a`` -- a homogeneous element of the vertex algebra
+        - ``n`` -- an integer
+
+        OUTPUT:
+
+        A matrix over the base ring, with ``dimension()`` columns.
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: F = M.fusion_product(M).depth_quotient_up_to(1)
+            sage: F.mode_matrix(V.e((1,)), 0).rank()      # e^α_(0): degree 0
+            2
+        """
+        V = self._V
+        a = V(a)
+        deg = QQ(V.degree(a)) - 1 - n
+        if not -self._d <= deg <= self._d:
+            raise ValueError("the modes of degree {} do not act on the depth-{} quotient (degrees {} .. {})".format(
+                deg, self._d, -self._d, self._d))
+        target = self if deg >= 0 else self._P.depth_quotient_up_to(self._d + deg)
+        cols = [target._coords_of(i, a.nproduct(self._S[i].monomial(m), n)) for i, m in self._basis]
+        return matrix(self._R, self.dimension(), target.dimension(), cols).transpose()
+
+    def projection(self, depth):
+        r"""
+        The matrix of the surjection onto the quotient of depth ``depth <= d``.
+
+        INPUT:
+
+        - ``depth`` -- a rational number with ``0 <= depth <= d``
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: M.fusion_product(M).depth_quotient_up_to(2).projection(1).dimensions()
+            (4, 8)
+        """
+        depth = QQ(depth)
+        if not 0 <= depth <= self._d:
+            raise ValueError("need 0 <= depth <= {}".format(self._d))
+        target = self._P.depth_quotient_up_to(depth)
+        cols = [target._coords_of(i, self._S[i].monomial(m)) for i, m in self._basis]
+        return matrix(self._R, self.dimension(), target.dimension(), cols).transpose()
+
+    def parities(self):
+        """
+        The parities of the basis vectors.
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[1]])); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 2)
+            sage: P = V.adjoint_module().fusion_product(V.adjoint_module())
+            sage: P.depth_quotient_up_to(1/2).parities()
+            [0, 1, 1]
+        """
+        return [self._S[i]._parity_key(m) for i, m in self._basis]
+
+    def horizontal_grades(self):
+        """
+        The horizontal grades of the basis vectors, or ``None`` when the
+        modules are not graded.
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])).with_horizontal_grading('lattice'); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: M.fusion_product(M).depth_quotient_up_to(1).horizontal_grades()
+            [(0,), (-2,), (2,), (0,)]
+        """
+        if any(M._mgrading is None for M in self._S):
+            return None
+        return [self._S[i]._grade_key(m) for i, m in self._basis]
+
+    def special_subspace_dimensions(self):
+        """
+        Not computed: the product is known.
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: M.fusion_product(M).depth_quotient_up_to(0).special_subspace_dimensions()
+            Traceback (most recent call last):
+            ...
+            NotImplementedError: the fusion product of lattice modules is known: Nahm's special subspace is not computed
+        """
+        raise NotImplementedError("the fusion product of lattice modules is known: "
+                                  "Nahm's special subspace is not computed")
+
+    def zhu_algebra_module(self, A):
+        """
+        Not implemented for lattice vertex algebras: the product is
+        :meth:`LatticeFusionProduct.module`, whose top levels are modules
+        over the Zhu algebra (``V.zhu_algebra()``).
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); J = V.J(0)
+            sage: V = V.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: M.fusion_product(M).depth_quotient_up_to(0).zhu_algebra_module(V.zhu_algebra())
+            Traceback (most recent call last):
+            ...
+            NotImplementedError: use the fusion product's module(): its top levels are modules over the Zhu algebra
+        """
+        raise NotImplementedError("use the fusion product's module(): its top levels "
+                                  "are modules over the Zhu algebra")

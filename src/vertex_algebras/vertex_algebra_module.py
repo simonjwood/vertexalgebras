@@ -1247,7 +1247,10 @@ class VertexAlgebraModule(_ArtFromRepr, CombinatorialFreeModule):
         OUTPUT:
 
         A :class:`~vertex_algebras.fusion_product.FusionProduct` (cached per
-        ``other``).
+        ``other``); over a lattice vertex algebra a
+        :class:`~vertex_algebras.fusion_product.LatticeFusionProduct`, the
+        known product ``V_{λ+L} ⊠ V_{μ+L} = V_{λ+μ+L}`` (simple modules,
+        the adjoint module and direct sums of these).
 
         EXAMPLES:
 
@@ -1261,11 +1264,15 @@ class VertexAlgebraModule(_ArtFromRepr, CombinatorialFreeModule):
             sage: s.fusion_product(e) is s.fusion_product(e)
             True
         """
-        from .fusion_product import FusionProduct
+        from .fusion_product import FusionProduct, LatticeFusionProduct
+        from .lattice_vertex_algebra import LatticeVertexAlgebra
         cache = self.__dict__.setdefault('_fusion_products', {})
         P = cache.get(other)
         if P is None:
-            P = FusionProduct(self, other)
+            if isinstance(self._V, LatticeVertexAlgebra):
+                P = LatticeFusionProduct(self, other)
+            else:
+                P = FusionProduct(self, other)
             cache[other] = P
         return P
 

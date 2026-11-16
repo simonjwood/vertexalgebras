@@ -30,6 +30,10 @@ The docstrings of the library cite the works below as ``[KEY]_``.
    semisimple Lie algebras*, Van Nostrand Reinhold, New York (1993);
    reprinted by CRC Press (2017), :doi:`10.1201/9780203745809`.
 
+.. [DL1993] \C. Dong, J. Lepowsky, *Generalized vertex algebras and relative
+   vertex operators*, Birkhäuser, Boston (1993),
+   :doi:`10.1007/978-1-4612-0353-7`.
+
 .. [DLM1997] \C. Dong, H. Li, G. Mason, *Regularity of rational vertex
    operator algebras*, Adv. Math. 132 (1997), 148--166,
    :arxiv:`q-alg/9508018`, :doi:`10.1006/aima.1997.1681`.
