@@ -212,12 +212,14 @@ sage: Q.zhu_algebra_up_to(6).dimension()
 - The reference manual, built from them: `sphinx-build -b html doc
   doc/_build/html` (with the package installed; `doc/requirements.txt`
   lists what the build needs), then open `doc/_build/html/index.html`.
-- The notebooks in
-  [`examples/`](https://github.com/simonjwood/vertexalgebras/tree/main/examples):
-  lattice vertex algebras,
-  bootstraps, singular vectors in Virasoro and affine vertex algebras,
-  commutants and cosets, the triplet algebra, Zhu algebras, Lie
-  superalgebras, ghost systems.
+- The example notebooks in
+  [`examples/`](https://github.com/simonjwood/vertexalgebras/tree/main/examples),
+  numbered in reading order from `01_getting_started.ipynb` (the index is
+  [`examples/README.md`](https://github.com/simonjwood/vertexalgebras/blob/main/examples/README.md)):
+  the main families of vertex algebras, subalgebras, ideals and quotients,
+  cosets, W-algebras, Zhu algebras, modules and morphisms, fusion and
+  extensions, the OPE bootstrap, and research examples (singular vectors in
+  affine vertex algebras, the triplet algebras, Virasoro fusion at c = 0).
 
 Computations run serially by default. `VertexAlgebraParallelism().set(n)`
 (from `vertex_algebras`) lets the C++ engines use `n` threads for the
