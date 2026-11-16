@@ -38,6 +38,12 @@ struct ModuleEngineBase {
     virtual void set_zero_mode(int i, const std::vector<std::vector<std::pair<int, CoefData>>> &columns) = 0;
     virtual void set_top_degrees(const std::vector<long> &degrees2) = 0;
     virtual void set_top_action(int i, long m2, int u, const ElemData &value) = 0;
+    // He's free module P = U / sum_{i > n} U U_{-i} of the higher Zhu
+    // algebras (higher_zhu_algebra._FreeModeModule): one top vector v of
+    // degree n2 / D, EVERY mode kept in the word (no top action), a word of
+    // negative degree is zero, and an all-lowering word lowering by more than
+    // n is zero
+    virtual void set_free(long n2) = 0;
     virtual void set_ope(int i, int j, const PolesData &poles) = 0;
     virtual std::vector<ElemData> act_many(const std::vector<ElemData> &els, const std::vector<ElemData> &vecs,
                                            const std::vector<int> &ie, const std::vector<long> &ns,
@@ -273,6 +279,8 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
     std::vector<long> tdeg2;
     bool is_lowered = false;
     std::unordered_map<uint64_t, Flat> lowered;
+    bool is_free = false;                          // set_free: He's free module
+    long free_n2 = 0;
     std::vector<Poles> opes;                       // poles of OPE(g_i, g_j) over word ids
     MonoTable words;                               // the monomials of V
     static constexpr uint32_t MAXL = 1u << 12;     // letter codes with a lock-free word id
@@ -350,9 +358,11 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
     }
 
     // -- keys ------------------------------------------------------------------ //
-    uint32_t mcode(int i, long m2) const { return (uint32_t)((-m2) * G + i); }
+    // a mode as a letter code: (MOFF - m2) G + i, any |m2| < MOFF (the free
+    // module keeps zero and lowering modes in its words)
+    uint32_t mcode(int i, long m2) const { return (uint32_t)((MOFF - m2) * G + i); }
     int mgen(uint32_t c) const { return (int)(c % G); }
-    long mval(uint32_t c) const { return -(long)(c / G); }
+    long mval(uint32_t c) const { return MOFF - (long)(c / G); }
     static bool mode_less(int i, long m2, int j, long n2) { return m2 < n2 || (m2 == n2 && i < j); }
     long depth2(uint32_t key) const {
         const std::vector<uint32_t> &kl = monos[key].letters;
@@ -423,6 +433,9 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
     }
     Flat gen_act_compute(int i, long m2, uint32_t key) {
         const std::vector<uint32_t> &kl = monos[key].letters;
+        if (is_free && depth2(key) - m2 < 0) return Flat();   // negative degree
+        if (is_free && kl.size() == 1)                // every mode kept: g_m v
+            return m2 > free_n2 ? Flat() : single_flat(cons_mode(mcode(i, m2), key));
         if (kl.size() == 1) {                         // the top vector u
             if (is_lowered && m2 >= 0) {
                 auto it = lowered.find(lowered_key(i, m2, kl[0]));
@@ -436,8 +449,14 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         int ix = mgen(x);
         long mx = mval(x);
         uint32_t rest = monos[key].tail;
-        if (mode_less(i, m2, ix, mx) || (i == ix && m2 == mx && !(par[i] & 1)))
+        if (mode_less(i, m2, ix, mx) || (i == ix && m2 == mx && !(par[i] & 1))) {
+            if (is_free && m2 > 0) {                  // all lowering: by at most n
+                long s2 = m2;
+                for (size_t k = 0; k + 1 < kl.size(); k++) s2 += mval(kl[k]);
+                if (s2 > free_n2) return Flat();
+            }
             return single_flat(cons_mode(mcode(i, m2), key));     // already in place
+        }
         if (i == ix && m2 == mx) {                    // an odd mode squared: x x = 1/2 [x, x]
             Elem r;
             Elem c = commutator(i, m2, ix, mx, rest);
@@ -570,8 +589,8 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         for (size_t k = 0; k < modes.size(); k++) {
             int i = modes[k].first;
             long m2 = modes[k].second;
-            if (i < 0 || i >= G || m2 >= 0 || m2 <= -MOFF || (m2 + h2[i]) % D)
-                throw std::invalid_argument("bad creation mode");
+            if (i < 0 || i >= G || m2 <= -MOFF || m2 >= MOFF || (!is_free && m2 >= 0) || (m2 + h2[i]) % D)
+                throw std::invalid_argument(is_free ? "bad mode" : "bad creation mode");
             if (k) {
                 int j = modes[k - 1].first;
                 long n2 = modes[k - 1].second;
@@ -631,6 +650,16 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         if (gen_cache.size() || word_cache.size())
             throw std::logic_error("the top must be set before computing");
         lowered[lowered_key(i, m2, (uint32_t)u)] = flat(elem_in(value));
+    }
+    void set_free(long n2) override {
+        if (dim != 1) throw std::logic_error("set_top(1, ...) first: the free module has one top vector");
+        if (n2 < 0 || n2 >= MOFF) throw std::invalid_argument("bad level");
+        if (gen_cache.size() || word_cache.size())
+            throw std::logic_error("the top must be set before computing");
+        tdeg2 = {n2};
+        is_lowered = true;                         // depth2 counts from the top degree
+        is_free = true;
+        free_n2 = n2;
     }
     void set_ope(int i, int j, const PolesData &poles) override {
         if (i < 0 || j < 0 || i >= G || j >= G) throw std::invalid_argument("bad generator index");

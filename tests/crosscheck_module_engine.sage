@@ -268,5 +268,49 @@ report('refusals (infinite top with the engine, cython), pickling',
        not refused and loads(dumps(Me)) is Me and Me is not InducedModule(
            Vir, Vir.zhu_algebra().module({'L': 1 / 16}), implementation='python'), refused)
 
+# 7. the free mode module of the higher Zhu algebras (He's model): the
+# engine's free mode (set_free) against the Python recursion, odd
+# generators, a lifted ring, levels 1-3; batches and threads
+import itertools
+from vertex_algebras.higher_zhu_algebra import _FreeModeModule
+from vertex_algebras.universal_vertex_algebra import UniversalVertexAlgebra as _UVA
+from vertex_algebras.normally_ordered_expressions import NormallyOrderedExpressions as _NOE
+import vertex_algebras as _va
+_Kc = Frac(QQ['c']); _c = _Kc.gen()
+
+
+def _free_cases(impl):
+    Y = _NOE(QQ, ['cp', 'cm'], parities={'cp': 1, 'cm': 1})
+    cp, cm = Y.gens()
+    return [_UVA(QQ, Y, {('cp', 'cm'): [0, 1]}, conformal_vector=cm * cp, implementation=impl),
+            _va.W3(_Kc, _c, conformal_vector='L', implementation=impl)]
+
+
+ok = True
+for Ve, Vp in zip(_free_cases(None), _free_cases('python')):
+    h = tuple(ZZ(Ve.degree(g)) for g in Ve.gens())
+    odd = tuple(bool(g.parity()) for g in Ve.gens())
+    for n in (1, 2, 3):
+        Pe, Pp = _FreeModeModule(Ve, n, h, odd), _FreeModeModule(Vp, n, h, odd)
+        modes = sorted([(i, m) for i in range(len(h)) for m in range(-2, n + 1)], key=lambda t: (t[1], t[0]))
+        words = [()]
+        for L in (1, 2):
+            for w in itertools.combinations_with_replacement(modes, L):
+                if any(w[k] == w[k + 1] and odd[w[k][0]] for k in range(L - 1)) or Pp._deg(w) < 0:
+                    continue
+                if all(m > 0 for _, m in w) and sum(m for _, m in w) > n:
+                    continue
+                words.append(w)
+        ok = ok and Pe._engine() is not None and all(
+            Pe._gen_act(i, m, w) == Pp._gen_act(i, m, w) for i, m in modes for w in words)
+        tasks = [(i, m, {w: 1}) for i, m in modes for w in words[:30]]
+        set_nproc(1)
+        r1 = Pe.act_many(tasks)
+        set_nproc(T)
+        rT = Pe.act_many(tasks)
+        set_nproc(1)
+        ok = ok and r1 == rT == Pp.act_many(tasks)
+report('free mode module (higher Zhu algebras): engine = Python, batches, threads', ok)
+
 print('total %.1fs' % (time.time() - t_start))
 report.result()

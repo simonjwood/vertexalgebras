@@ -45,6 +45,7 @@ cdef extern from "_module_engine.hpp" namespace "vae":
         void set_zero_mode(int, const vector[vector[pair[int, CoefData]]] &) except +_raise_error
         void set_top_degrees(const vector[long] &) except +_raise_error
         void set_top_action(int, long, int, const ElemData &) except +_raise_error
+        void set_free(long) except +_raise_error
         void set_ope(int, int, const PolesData &) except +_raise_error
         vector[ElemData] act_many(const vector[ElemData] &, const vector[ElemData] &,
                                   const vector[int] &, const vector[long] &, const vector[int] &,
@@ -290,6 +291,35 @@ cdef class ModuleEngine:
             [[(1, [((), 2, 1)])]]
         """
         self.e.set_top_action(i, m2, u, self._ids_in(value))
+
+    def set_free(self, long n2):
+        """
+        Make this the free module ``P`` of the higher Zhu algebra of level
+        ``n = n2 / D`` (He's model, ``higher_zhu_algebra._FreeModeModule``):
+        one top vector ``v`` of degree ``n``, every mode kept in the words,
+        words of negative degree zero, all-lowering words lowering by more
+        than ``n`` zero.  After ``set_top(1, [0])``, before computing.
+
+        EXAMPLES:
+
+        The Virasoro algebra at level 1: ``L_1 L_{-1} v = L_{-1} L_1 v + 2 L_0 v``,
+        and ``L_2 v = 0`` (it lowers by 2)::
+
+            sage: from vertex_algebras._module_engine import ModuleEngine
+            sage: one = lambda n, d=1: [((), n, d)]
+            sage: L = ((0, 0),)
+            sage: E = ModuleEngine('q', 1, [0], [2], 1)
+            sage: E.set_ope(0, 0, [[(((0, 1),), one(1))], [(L, one(2))], [],
+            ....:                  [((), one(1, 4))]])
+            sage: E.set_top(1, [0]); E.set_free(1)
+            sage: x = E.intern_key([(0, -1)], 0)
+            sage: r = E.act_many([[(L, one(1))]], [[(x, one(1))]], [(0, 2, 0)])     # L_1 = L_(2)
+            sage: sorted((E.key_of(k), c) for k, c in r[0])
+            [((((0, -1), (0, 1)), 0), [((), 1, 1)]), ((((0, 0),), 0), [((), 2, 1)])]
+            sage: E.act_many([[(L, one(1))]], [[(E.intern_key((), 0), one(1))]], [(0, 3, 0)])
+            [[]]
+        """
+        self.e.set_free(n2)
 
     def set_ope(self, int i, int j, poles):
         """The OPE of generators ``i``, ``j``: a list of poles, each a list

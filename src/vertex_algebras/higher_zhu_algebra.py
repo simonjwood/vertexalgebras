@@ -339,6 +339,131 @@ class _ModeWords:
         return Infinity if self._ngens else 1
 
 
+class _FreeModeEngine:
+    r"""
+    The C++ module engine (``_module_engine``, ``set_free``) of a
+    :class:`_FreeModeModule`: the same rewriting, every mode kept in the
+    words, over the coefficient ring of the vertex algebra's engine.
+
+    INPUT:
+
+    - ``P`` -- a :class:`_FreeModeModule`
+    - ``K`` -- the engine kernel of its vertex algebra
+    - ``mod`` -- the compiled module ``_module_engine``
+
+    TESTS::
+
+        sage: import vertex_algebras as va
+        sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+        sage: P = V.zhu_algebra(level=1)._P; E = P._engine()
+        sage: E is None or E.act_many([{((0, 0),): 1}], [{((0, -1),): 1}], [(0, 2, 0)], 1) == [
+        ....:     {((0, -1), (0, 1)): 1, ((0, 0),): 2}]
+        True
+    """
+    def __init__(self, P, K, mod):
+        """
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+            sage: E = V.zhu_algebra(level=2)._P._engine()
+            sage: E is None or E._D
+            1
+        """
+        from sage.arith.functions import lcm
+        V = P._V
+        G = len(P._h)
+        D = int(lcm([QQ(h).denominator() for h in P._h] + [1]))
+        self._D = D
+        self._K = K
+        self._F = V.base_ring()
+        E = mod.ModuleEngine(K.kind(), G, [int(bool(o)) for o in P._odd], [int(QQ(h) * D) for h in P._h], D,
+                             K.nvars(), K.modulus(), K.minpoly())
+        E.set_top(1, [0])
+        E.set_free(int(P._n * D))
+        for i in range(G):
+            for j in range(G):
+                E.set_ope(i, j, [K._el_up(d) for d in V._ope_mono(((i, 0),), ((j, 0),))])
+        self._E = E
+        self._ids = {}
+        self._keys = {}
+
+    def key_id(self, key):
+        """
+        The engine's id of a word (interned on first use).
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+            sage: E = V.zhu_algebra(level=1)._P._engine()
+            sage: E is None or E.key(E.key_id(((0, -1), (0, 1)))) == ((0, -1), (0, 1))
+            True
+        """
+        r = self._ids.get(key)
+        if r is None:
+            r = self._E.intern_key([(int(i), int(m * self._D)) for i, m in key], 0)
+            self._ids[key] = r
+            self._keys[r] = key
+        return r
+
+    def key(self, r):
+        """
+        The word of an engine id.
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+            sage: E = V.zhu_algebra(level=1)._P._engine()
+            sage: E is None or E.key(E.key_id(())) == ()
+            True
+        """
+        k = self._keys.get(r)
+        if k is None:
+            modes, _ = self._E.key_of(r)
+            D = self._D
+            k = tuple((i, ZZ(m) if D == 1 else QQ(m) / D) for i, m in modes)
+            self._keys[r] = k
+            self._ids[k] = r
+        return k
+
+    def act_many(self, els, vecs, tasks, nthreads):
+        r"""
+        ``[els[e]_(n) vecs[v] for (e, n, v) in tasks]``: ``els`` raw dicts of
+        the vertex algebra, ``vecs`` raw dicts of words; ``None`` if a
+        coefficient cannot be converted.
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+            sage: E = V.zhu_algebra(level=1)._P._engine()
+            sage: E is None or E.act_many([{((0, 0),): 1}], [{(): 1}], [(0, 3, 0)], 1) == [{}]
+            True
+        """
+        K, F = self._K, self._F
+        cin, up = K._cin, K._up
+        try:
+            Es = [[(w, cin(up(F(c)))) for w, c in d.items() if c] for d in els]
+            Vs = [[(self.key_id(k), cin(up(F(c)))) for k, c in d.items() if c] for d in vecs]
+        except (ValueError, ArithmeticError, TypeError, AttributeError):
+            return None
+        out = self._E.act_many(Es, Vs, [(int(e), int(n), int(v)) for e, n, v in tasks], int(nthreads))
+        cout, down = K._cout, K._down
+        keys, key = self._keys, self.key
+        res = []
+        for el in out:
+            d = {}
+            for i, t in el:
+                x = cout(t) if down is None else down(cout(t))
+                if x:
+                    k = keys.get(i)
+                    d[k if k is not None else key(i)] = x
+            res.append(d)
+        return res
+
+
 class _FreeModeModule(_GeneratorActions):
     r"""
     The ``V``-module ``P = U / L`` of the module documentation: basis the
@@ -382,6 +507,69 @@ class _FreeModeModule(_GeneratorActions):
         self._data = V._weight_data()
         self._gen_cache = {}
         self._act_cache = {}
+        self._mengine = None
+        self._mengine_built = False
+
+    def _engine(self):
+        r"""
+        The C++ engine (:class:`_FreeModeEngine`), or ``None``: without the
+        compiled module, when the vertex algebra has no engine
+        (``implementation='python'``, other rings), or when a coefficient
+        cannot be converted.
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+            sage: P = V.zhu_algebra(level=1)._P; E = P._engine(); E is None or E is P._engine()
+            True
+            sage: Vp = va.Virasoro(QQ, 1/2, conformal_vector='L', implementation='python')
+            sage: Vp.zhu_algebra(level=1)._P._engine() is None
+            True
+        """
+        if not self._mengine_built:
+            self._mengine_built = True
+            from .vertex_algebra import _compiled_module
+            mod, _ = _compiled_module('_module_engine')
+            K = self._V._engine() if mod is not None else None
+            if K is not None:
+                try:
+                    self._mengine = _FreeModeEngine(self, K, mod)
+                except (ValueError, ArithmeticError, TypeError, AttributeError):
+                    self._mengine = None
+        return self._mengine
+
+    def act_many(self, tasks):
+        r"""
+        ``[g_{i,m} z for (i, m, z) in tasks]`` (generator modes on dicts of
+        words), in one engine call (threads of
+        :class:`~vertex_algebras.vertex_algebra.VertexAlgebraParallelism`)
+        if there is an engine, else by the Python recursion.
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+            sage: P = V.zhu_algebra(level=1)._P
+            sage: P.act_many([(0, 1, {((0, -1),): 2}), (0, 2, {(): 1})])
+            [{((0, -1), (0, 1)): 2, ((0, 0),): 4}, {}]
+        """
+        E = self._engine()
+        if E is not None and tasks:
+            gens = sorted({i for i, _, _ in tasks})
+            gidx = {i: k for k, i in enumerate(gens)}
+            r = E.act_many([{((i, 0),): self._one_R} for i in gens], [z for _, _, z in tasks],
+                           [(gidx[i], m + self._h[i] - 1, k) for k, (i, m, _) in enumerate(tasks)],
+                           self._V._nthreads())
+            if r is not None:
+                return r
+        out = []
+        for i, m, z in tasks:
+            o = {}
+            for k, c in z.items():
+                _add_scaled(o, self._gen_act_py(i, m, k), c)
+            out.append(o)
+        return out
 
     def _deg(self, key):
         """
@@ -412,7 +600,12 @@ class _FreeModeModule(_GeneratorActions):
         ck = (a, k, key)
         r = self._act_cache.get(ck)
         if r is None:
-            r = self._action_key(a, k, key)
+            E = self._engine()
+            if E is not None:
+                r = E.act_many([{a: self._one_R}], [{key: self._one_R}], [(0, k, 0)], 1)
+                r = None if r is None else r[0]
+            if r is None:
+                r = self._action_key(a, k, key)
             self._act_cache[ck] = r
         return r
 
@@ -455,6 +648,34 @@ class _FreeModeModule(_GeneratorActions):
             sage: P = V.zhu_algebra(level=1)._P
             sage: P._gen_act(0, 0, ((0, -1),))            # L_0 L_{-1} v
             {((0, -1),): 1, ((0, -1), (0, 0)): 1}
+        """
+        ck = (i, m, key)
+        r = self._gen_cache.get(ck)
+        if r is not None:
+            return r
+        E = self._engine()
+        if E is not None:
+            r = E.act_many([{((i, 0),): self._one_R}], [{key: self._one_R}],
+                           [(0, m + self._h[i] - 1, 0)], 1)
+            if r is not None:
+                self._gen_cache[ck] = r[0]
+                return r[0]
+        return self._gen_act_py(i, m, key)
+
+    def _gen_act_py(self, i, m, key):
+        """
+        :meth:`_gen_act` by the Python recursion (the fallback; also the
+        reference of the engine's tests).
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+            sage: Vp = va.Virasoro(QQ, 1/2, conformal_vector='L', implementation='python')
+            sage: P, Pp = V.zhu_algebra(level=1)._P, Vp.zhu_algebra(level=1)._P
+            sage: all(Pp._gen_act_py(0, m, k) == P._gen_act(0, m, k)
+            ....:     for m in range(-3, 3) for k in [(), ((0, -1),), ((0, -2), (0, 1)), ((0, 0), (0, 1))])
+            True
         """
         ck = (i, m, key)
         r = self._gen_cache.get(ck)
@@ -536,10 +757,7 @@ class _FreeModeModule(_GeneratorActions):
             {((0, -1), (0, 0), (0, 1)): 3, ((0, -1), (0, 1)): 3}
         """
         for i, m in reversed(word):
-            out = {}
-            for k, c in vec.items():
-                _add_scaled(out, self._gen_act(i, m, k), c)
-            vec = out
+            vec = self.act_many([(i, m, vec)])[0]
         return vec
 
 
@@ -1411,7 +1629,11 @@ class HigherZhuAlgebraQuotient(_ZhuGrading, CombinatorialFreeModule):
             sage: Z._filt(((0, -1), (0, 0), (0, 1)))
             6
         """
-        return sum((self._h[i] for i, _ in w), ZZ.zero())
+        c = self.__dict__.setdefault('_filt_cache', {})
+        f = c.get(w)
+        if f is None:
+            f = c[w] = sum((self._h[i] for i, _ in w), ZZ.zero())
+        return f
 
     def _word_order(self, w):
         """
@@ -1455,10 +1677,7 @@ class HigherZhuAlgebraQuotient(_ZhuGrading, CombinatorialFreeModule):
             sage: Z._act(0, 1, {((0, -1),): 2})
             {((0, -1), (0, 1)): 2, ((0, 0),): 4}
         """
-        out = {}
-        for k, c in z.items():
-            _add_scaled(out, self._P._gen_act(i, m, k), c)
-        return out
+        return self._P.act_many([(i, m, z)])[0]
 
     def _compute(self):
         """
@@ -1507,13 +1726,13 @@ class HigherZhuAlgebraQuotient(_ZhuGrading, CombinatorialFreeModule):
             while queue:
                 todo = list(queue)
                 queue.clear()
-                cands = []
+                tasks = []
                 for z, d in todo:
                     f = max(self._filt(k) for k in z)
                     for i, hi in enumerate(self._h):
                         if f + hi <= N:
-                            cands.extend(self._act(i, m, z) for m in range(d - n, d + 1))
-                insert(cands)
+                            tasks.extend((i, m, z) for m in range(d - n, d + 1))
+                insert(P.act_many(tasks))           # one engine call per round
 
         # the sources r_(k) v, degrees n + w - k - 1 in [0, n]
         cands = []
