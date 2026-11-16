@@ -29,6 +29,15 @@ if LV._LVA_ENGINE is None:
 checked = mismatches = 0
 
 
+# Ctrl-C timing checks use at most as many threads as there are cores
+# (oversubscribed threads notice the interrupt late on small CI runners)
+import os as _os
+_NCORES = _os.cpu_count() or 1
+
+
+def _threads(n):
+    return min(n, _NCORES)
+
 def check(ok, what):
     global checked, mismatches
     checked += 1
@@ -163,7 +172,7 @@ def _alarm(*args):
 
 old = signal.signal(signal.SIGALRM, _alarm)
 ref = None
-for n in (1, 4):
+for n in sorted({1, _threads(4)}):
     L.clear_caches()
     set_nproc(n)
     t = time.perf_counter()
@@ -188,7 +197,7 @@ els = [{k: QQ(1)} for k in ks1 + ks2]
 tasks = [(i, n, len(ks1) + j) for i in range(len(ks1)) for j in range(len(ks2))
          for n in (-3, -2, -1, 0, 1, 2)]
 ref_b = None
-for n in (1, 4):
+for n in sorted({1, _threads(4)}):
     L.clear_caches()
     set_nproc(n)
     t = time.perf_counter()

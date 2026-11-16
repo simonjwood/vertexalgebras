@@ -30,6 +30,15 @@ if U._UVA_ENGINE is None:
 checked = mismatches = 0
 
 
+# Ctrl-C timing checks use at most as many threads as there are cores
+# (oversubscribed threads notice the interrupt late on small CI runners)
+import os as _os
+_NCORES = _os.cpu_count() or 1
+
+
+def _threads(n):
+    return min(n, _NCORES)
+
 def check(ok, what):
     global checked, mismatches
     checked += 1
@@ -217,7 +226,7 @@ def _alarm(*args):
 
 
 old = signal.signal(signal.SIGALRM, _alarm)
-for n in (1, 4):
+for n in sorted({1, _threads(4)}):
     VQ.clear_caches()
     set_nproc(n)
     t = time.perf_counter()
@@ -251,7 +260,7 @@ for mode in ('engine', 'python'):
     except ZeroDivisionError:
         got = 'ZeroDivisionError'
     check(got == 'ZeroDivisionError', '%s over GF(5): %s' % (mode, got))
-    for n in (1, 4):
+    for n in sorted({1, _threads(4)}):
         set_nproc(n)
         try:
             X.ope(X)
@@ -296,7 +305,7 @@ print('single deep OPE, jobs stolen per thread count:', stolen)
 old = signal.signal(signal.SIGALRM, _alarm)
 V7 = UniversalVertexAlgebra(QQ, ['L'], VIR)
 V7.clear_caches()
-set_nproc(8)
+set_nproc(_threads(8))
 X7 = V7.monomial(((0, 0),) * 7)
 t = time.perf_counter()
 signal.setitimer(signal.ITIMER_REAL, float(0.3r))
@@ -309,12 +318,12 @@ signal.setitimer(signal.ITIMER_REAL, float(0r))
 signal.signal(signal.SIGALRM, old)
 dt = time.perf_counter() - t
 set_nproc(1)
-check(got == 'interrupted' and dt < 2, 'Ctrl-C in one deep OPE with 8 threads: %s after %.2f s' % (got, dt))
+check(got == 'interrupted' and dt < 2, 'Ctrl-C in one deep OPE with %d threads: %s after %.2f s' % (_threads(8), got, dt))
 X4 = V7.monomial(((0, 0),) * 4)
 VR = UniversalVertexAlgebra(QQ, ['L'], VIR, implementation='engine')   # not V7: another key
 check(raw(X4.ope(X4)) == raw(VR.monomial(((0, 0),) * 4).ope(VR.monomial(((0, 0),) * 4))),
       'results after Ctrl-C in one deep OPE')
-print('Ctrl-C in one deep OPE (8 threads): %s after %.2f s' % (got, dt))
+print('Ctrl-C in one deep OPE (%d threads): %s after %.2f s' % (_threads(8), got, dt))
 try:
     V5, X5, Y5 = deep(GF(5), GF(5)(3), 8)   # building them divides by 5! already
     X5.ope(Y5)
