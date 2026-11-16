@@ -713,7 +713,7 @@ class FusionQuotientUpTo(SageObject):
                         if r:
                             vecs.append(r)
             E = KeyedSpan(self._R, key_order=self._key_order)
-            E.insert_many(vecs)
+            E.insert_many(vecs, greedy=False)       # only the span (its rows) matters
             D[e] = E.rows()
         return D[self._d]
 
@@ -765,7 +765,7 @@ class FusionQuotientUpTo(SageObject):
         """
         rels = self._pole_relations()
         E = KeyedSpan(self._R, key_order=self._key_order)
-        E.insert_many(self._depth_words())
+        E.insert_many(self._depth_words(), greedy=False)
         # the closure in rounds, one batch per round (single membership
         # tests were dense solves: 131 of 137 s at c = 0, depth 2, window 9)
         todo = rels
@@ -809,7 +809,7 @@ class FusionQuotientUpTo(SageObject):
                             r = side.act(i, gd, n, k)
                             if r:
                                 vecs.append(r)
-        E.insert_many(vecs)
+        E.insert_many(vecs, greedy=False)           # only the span (its pivots) matters
         piv = set(E.pivots())
         return {t: [k for k in side.keys[t] if k not in piv] for t in self._depths}
 
@@ -849,7 +849,7 @@ class FusionQuotientUpTo(SageObject):
                             if r:
                                 vecs.append(r)
             E = KeyedSpan(self._R, key_order=side.M._key_order)
-            E.insert_many(vecs)
+            E.insert_many(vecs, greedy=False)       # only the span (its rows) matters
             D[e] = E.rows()
         piv = set(E.pivots())
         return {t: [k for k in side.keys[t] if k not in piv] for t in self._depths}

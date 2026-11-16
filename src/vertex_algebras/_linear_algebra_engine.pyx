@@ -54,6 +54,181 @@ cdef extern from "_linear_algebra_engine.hpp" namespace "vae":
 
 
 cdef extern from "_linear_algebra_engine.hpp" namespace "vae":
+    ctypedef vector[pair[uint32_t, pair[Num, Num]]] QData
+    cdef cppclass QEchelon:
+        QEchelon(cbool) except +_raise_error
+        void set_rank(uint32_t, int64_t)
+        void set_nlabels(uint32_t)
+        void load_row(uint32_t, const QData &, const QData &) except +_raise_error
+        vector[cbool] insert_many(const vector[QData] &, PollFn) except +_raise_error
+        double fill(int64_t)
+        vector[pair[uint32_t, pair[QData, QData]]] rows() except +_raise_error
+        vector[cbool] done
+
+
+cdef QData _q_in(object v) except *:
+    cdef QData d
+    cdef pair[uint32_t, pair[Num, Num]] t
+    for k, num, den in v:
+        t.first = k
+        _num_in(t.second.first, num)
+        _num_in(t.second.second, den)
+        d.push_back(t)
+    return d
+
+
+cdef list _q_out(const QData &d):
+    cdef list out = []
+    cdef size_t i
+    for i in range(d.size()):
+        out.append((d[i].first, _num_out(d[i].second.first), _num_out(d[i].second.second)))
+    return out
+
+
+cdef class QEchelon_:
+    r"""
+    A sparse reduced echelon form over `\QQ` (FLINT ``fmpq``): the sparse
+    phase of ``_keyed_spans._Block`` over ``QQ`` (same pivots: the key of
+    largest rank; combos by label index).  Vectors are lists of
+    ``(key id, numerator, denominator)`` (Python integers).
+
+    EXAMPLES::
+
+        sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+        sage: E = QEchelon_(True); E.set_ranks([(0, 0), (1, 1), (2, 2)])
+        sage: E.insert_many([[(0, 1, 1), (1, 2, 1)], [(0, 2, 1), (1, 4, 1)], [(1, 1, 3), (2, 1, 1)]])
+        [True, False, True]
+        sage: E.rows()          # e_0/2 + e_1, and v_3 - row_1/3 = -e_0/6 + e_2 (combos: accepted vectors 0, 1)
+        [(1, [(0, 1, 2), (1, 1, 1)], [(0, 1, 2)]),
+         (2, [(0, -1, 6), (2, 1, 1)], [(0, -1, 6), (1, 1, 1)])]
+        sage: E.fill(3)
+        0.7
+    """
+    cdef QEchelon *e
+
+    def __cinit__(self, bint combos):
+        """
+        An empty echelon form.
+
+        TESTS::
+
+            sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+            sage: QEchelon_(False).rows(), QEchelon_(False).fill(5)
+            ([], 0.0)
+        """
+        self.e = new QEchelon(combos)
+
+    def __dealloc__(self):
+        del self.e
+
+    def set_ranks(self, ranks):
+        """
+        ``ranks``: pairs ``(key id, rank)``; the pivot of a new row is its
+        key of largest rank.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+            sage: E = QEchelon_(False); E.set_ranks([(0, 1), (1, 0)])
+            sage: E.insert_many([[(0, 1, 1), (1, 1, 1)]]); E.rows()[0][0]
+            [True]
+            0
+        """
+        for k, r in ranks:
+            self.e.set_rank(k, r)
+
+    def set_nlabels(self, n):
+        """
+        The label index of the next inserted vector (combos refer to label
+        indices): the number of vectors a loaded block already labelled.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+            sage: E = QEchelon_(True); E.set_nlabels(5)
+            sage: E.insert_many([[(0, 2, 1)]]); E.rows()
+            [True]
+            [(0, [(0, 1, 1)], [(5, 1, 2)])]
+        """
+        self.e.set_nlabels(n)
+
+    def load_row(self, p, row, combo):
+        """
+        Load an existing row ``(pivot, row, combo)`` (e.g. of a Python block).
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+            sage: E = QEchelon_(True); E.set_ranks([(0, 0), (1, 1)]); E.set_nlabels(1)
+            sage: E.load_row(1, [(0, 1, 1), (1, 1, 1)], [(0, 1, 1)])
+            sage: E.insert_many([[(1, 1, 1)], [(0, 1, 1), (1, 1, 1)]])
+            [True, False]
+            sage: E.load_row(1, [], [])
+            Traceback (most recent call last):
+            ...
+            ValueError: pivot already loaded
+        """
+        self.e.load_row(p, _q_in(row), _q_in(combo))
+
+    def insert_many(self, vecs):
+        """
+        Insert the vectors; return for each whether it was independent (an
+        interrupt keeps the committed ones: :meth:`done`).
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+            sage: E = QEchelon_(False)
+            sage: E.insert_many([[(0, 1, 2)], [(0, 3, 1)], [(1, 2**70, 3)]])
+            [True, False, True]
+        """
+        cdef vector[QData] vs
+        for v in vecs:
+            vs.push_back(_q_in(v))
+        return list(self.e.insert_many(vs, <PollFn>_poll))
+
+    def done(self):
+        """
+        The flags of the vectors of the last batch committed so far.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+            sage: E = QEchelon_(False); _ = E.insert_many([[(0, 1, 1)], [(0, 2, 1)]]); E.done()
+            [True, False]
+        """
+        return list(self.e.done)
+
+    def fill(self, ncols):
+        """
+        ``_Block._fill``: entries of the rows and combos over
+        ``r (ncols + r)``.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+            sage: E = QEchelon_(True); _ = E.insert_many([[(0, 1, 1), (1, 1, 1)]]); E.fill(2)
+            1.0
+        """
+        return self.e.fill(ncols)
+
+    def rows(self):
+        """
+        All rows ``(pivot, row, combo)``, pivots in insertion order.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+            sage: E = QEchelon_(False); _ = E.insert_many([[(3, 2, 1), (4, -1, 5)]]); E.rows()
+            [(4, [(3, -10, 1), (4, 1, 1)], [])]
+        """
+        cdef vector[pair[uint32_t, pair[QData, QData]]] r = self.e.rows()
+        cdef size_t i
+        return [(r[i].first, _q_out(r[i].second.first), _q_out(r[i].second.second))
+                for i in range(r.size())]
+
+
+cdef extern from "_linear_algebra_engine.hpp" namespace "vae":
     ctypedef vector[pair[int64_t, vector[pair[int64_t, uint64_t]]]] NmodKernel
     NmodKernel nmod_kernel(int64_t, int64_t, uint64_t, const int64_t *, const int64_t *,
                            const uint64_t *, size_t, int) except +_raise_error nogil

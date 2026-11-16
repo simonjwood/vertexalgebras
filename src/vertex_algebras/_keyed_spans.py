@@ -83,9 +83,15 @@ FILL_CHECK = 16
 #: the dense kernel takes 0.9 s, all sparse 6.8 s.
 KERNEL_DENSE_FILL = 0.02
 
-#: Primes (below the limit of Sage's ``Matrix_modn_dense_double``) for the
-#: column rank profile of a dense block (see :func:`_column_profile`).
-PROFILE_PRIMES = (94906249, 94906247, 94906219)
+#: Primes for the mod-p rank profiles of dense blocks (see
+#: :func:`_column_profile`): below 2^24, where Sage's dense matrices over
+#: ``GF(p)`` use the fast ``Matrix_modn_dense_double`` (LinBox) echelon
+#: form; larger primes (Sage 10.10: from 2^25 on, and FLINT's backend from
+#: 2^26) were 5-6x slower on the fusion spans (a 2168 x 2323 profile: 0.5 s
+#: below 2^24, 2.9 s at 2^25, 5.1 s at 94906249).  The size of the prime does
+#: not matter for correctness (independence mod p implies independence over
+#: QQ), only for how rarely an unlucky prime moves on to the next one.
+PROFILE_PRIMES = (16777213, 16777199, 16777183)
 
 
 def _column_profile(M):
@@ -181,23 +187,54 @@ def _kernel_columns(M):
         sage: SLA.PROFILE_PRIMES = old; K.dimensions(), (M * K).is_zero()
         ((3, 1), True)
     """
+    return _kernel_and_echelon(M)[0]
+
+
+def _kernel_and_echelon(M):
+    r"""
+    :func:`_kernel_columns` of ``M`` (independent rows, over ``QQ``) with,
+    from the same solve ``X = M[:, P]^{-1} M[:, F]``, the reduced echelon form
+    of its row space when its pivot columns are ``P`` (the mod-p profile):
+    the rows ``e_{P_i} + Σ_j X[i, j] e_{F_j}``, which is reduced echelon iff
+    ``X[i, j] = 0`` whenever ``F_j < P_i`` (checked).  Returns ``(K, E, P)``,
+    ``E`` and ``P`` ``None`` when not known (FLINT's kernel, or the pivots
+    over ``QQ`` are not ``P``).
+
+    EXAMPLES::
+
+        sage: from vertex_algebras._keyed_spans import _kernel_and_echelon
+        sage: M = matrix(QQ, [[2, 1, 0, 3], [0, 0, 4, 1]])
+        sage: K, E, P = _kernel_and_echelon(M)
+        sage: (M * K).is_zero(), E == M.echelon_form(), P
+        (True, True, [0, 2])
+        sage: M = matrix(QQ, [[0, 1, 1], [1, 0, 1]])           # pivots 0, 1 over QQ
+        sage: K, E, P = _kernel_and_echelon(M); E == M.echelon_form(), (M * K).is_zero()
+        (True, True)
+    """
     from sage.matrix.constructor import matrix
     from sage.rings.rational_field import QQ
     n, m = M.dimensions()
     if not n:
-        return matrix.identity(QQ, m)
+        return matrix.identity(QQ, m), matrix(QQ, 0, m), []
     Z = M._clear_denom()[0]
     P = _column_profile(Z)
     if P is None:
         K = Z.right_kernel_matrix(algorithm='flint', basis='computed')
-        return K.transpose().change_ring(QQ)
+        return K.transpose().change_ring(QQ), None, None
     Ps = set(P)
     F = [j for j in range(m) if j not in Ps]
-    X = Z.matrix_from_columns(P).solve_right(Z.matrix_from_columns(F))
+    X = Z.matrix_from_columns(P).solve_right(Z.matrix_from_columns(F)).change_ring(QQ)
     # rows P: -X, rows F: the identity
-    K = (-X.change_ring(QQ)).stack(matrix.identity(QQ, len(F)))
+    K = (-X).stack(matrix.identity(QQ, len(F)))
     where = {j: i for i, j in enumerate(P + F)}
-    return K.matrix_from_rows([where[j] for j in range(m)])
+    K = K.matrix_from_rows([where[j] for j in range(m)])
+    # reduced echelon with pivots P iff no entry of X left of its row's pivot
+    from bisect import bisect_right
+    first = [bisect_right(P, f) for f in F]       # rows i >= first[j] have P_i > F_j
+    if all(i < first[j] for i, j in X.nonzero_positions()):
+        E = matrix.identity(QQ, n).augment(X).matrix_from_columns([where[j] for j in range(m)])
+        return K, E, list(P)
+    return K, None, None
 
 
 def _addmul(dst, src, c):
@@ -373,6 +410,28 @@ class _Block:
             self._stale = False
             self._dense_build(self._independent())
 
+    def _dense_cols(self, keys):
+        r"""
+        The columns of the dense backend: the keys, largest first in the key
+        order (so that the echelon pivots are the sparse pivots), else sorted
+        if possible.
+
+        TESTS::
+
+            sage: from vertex_algebras._keyed_spans import _Block
+            sage: _Block(QQ, key_order=lambda k: -k)._dense_cols({1, 3, 2}), _Block(QQ)._dense_cols({3, 1})
+            ([1, 2, 3], [1, 3])
+        """
+        cols = list(keys)
+        if self._key_order is not None:
+            cols.sort(key=self._key_order, reverse=True)
+        else:
+            try:
+                cols.sort()
+            except TypeError:
+                pass
+        return cols
+
     def _dense_build(self, vecs):
         r"""
         Rebuild the dense backend from the independent vectors ``vecs``
@@ -396,14 +455,7 @@ class _Block:
         keys = set()
         for v in vecs:
             keys.update(v)
-        cols = list(keys)
-        if self._key_order is not None:
-            cols.sort(key=self._key_order, reverse=True)
-        else:
-            try:
-                cols.sort()
-            except TypeError:
-                pass
+        cols = self._dense_cols(keys)
         idx = {k: i for i, k in enumerate(cols)}
         A = matrix(self._R, len(vecs), len(cols),
                    {(i, idx[k]): c for i, v in enumerate(vecs)
@@ -566,12 +618,93 @@ class _Block:
         for v in vecs:
             keys.update(v)
         ncols = len(keys)
+        out = self._engine_insert_many(vecs, labels, keys, greedy)
+        if out is not None:
+            return out
         out = []
         for i, (v, l) in enumerate(zip(vecs, labels)):
             if ((i % FILL_CHECK == 0 or i in (4, 8))
                     and self._fill(ncols) >= DENSE_FILL):
                 return out + self._dense_insert_many(vecs[i:], labels[i:], greedy)
             out.append(self.insert(v, l))
+        return out
+
+    def _engine_insert_many(self, vecs, labels, keys, greedy):
+        r"""
+        The sparse phase of :meth:`insert_many` over ``QQ`` in C++
+        (``_linear_algebra_engine.QEchelon_``): the same elimination (pivot
+        = the key of largest rank in the key order, combos by label index),
+        the same fill checks and switch to the dense backend; the rows are
+        written back to ``_rows`` at the end (also after an interrupt, with
+        the inserts committed so far).  ``None`` (the Python loop) without
+        the compiled engine or a key order (the Python pivot is then the
+        first key in dict order, which C++ cannot follow).
+
+        TESTS::
+
+            sage: from vertex_algebras._keyed_spans import _Block
+            sage: import vertex_algebras._keyed_spans as SLA
+            sage: vecs = [{(i, j): QQ(i - j + 1) / (j + 2) for j in range(3)} for i in range(60)]
+            sage: B, C = _Block(QQ, key_order=lambda k: k), _Block(QQ, key_order=lambda k: k)
+            sage: old = SLA._LAE_TRIED, SLA._LAE
+            sage: flags = B.insert_many(vecs)
+            sage: SLA._LAE_TRIED, SLA._LAE = True, None      # the Python loop
+            sage: flags == C.insert_many(vecs), B._rows == C._rows, B._labels == C._labels
+            (True, True, True)
+            sage: SLA._LAE_TRIED, SLA._LAE = old
+        """
+        from sage.rings.rational_field import QQ
+        mod = _frac_engine()
+        if mod is None or self._key_order is None or self._R is not QQ:
+            return None
+        order = sorted(keys, key=self._key_order)
+        ids = {k: i for i, k in enumerate(order)}
+        E = mod.QEchelon_(bool(self._combos_ok))
+        E.set_ranks(enumerate(range(len(order))))
+        E.set_nlabels(len(self._labels))
+
+        def conv(d, idmap):
+            out = []
+            for k, c in d.items():
+                if c:
+                    c = QQ(c)
+                    out.append((idmap(k), int(c.numerator()), int(c.denominator())))
+            return out
+
+        key_id = ids.__getitem__
+        for p, (row, cb) in self._rows.items():
+            E.load_row(ids[p], conv(row, key_id), conv(cb, int) if cb is not None else [])
+        out = []
+
+        def sync():
+            rows = {}
+            for p, row, cb in E.rows():
+                rows[order[p]] = ({order[k]: QQ((a, b)) for k, a, b in row},
+                                  {k: QQ((a, b)) for k, a, b in cb} if self._combos_ok else None)
+            self._rows = rows
+
+        def accept(flags, a):
+            for f, v, l in zip(flags, vecs[a:a + len(flags)], labels[a:a + len(flags)]):
+                out.append(f)
+                if f:
+                    self._labels.append(l)
+                    self._keep(v)
+
+        ncols = len(keys)
+        checks = [i for i in range(len(vecs)) if i % FILL_CHECK == 0 or i in (4, 8)]
+        for j, i in enumerate(checks):
+            if E.fill(ncols) >= DENSE_FILL:
+                sync()
+                return out + self._dense_insert_many(vecs[i:], labels[i:], greedy)
+            b = checks[j + 1] if j + 1 < len(checks) else len(vecs)
+            try:
+                flags = E.insert_many([conv(v, key_id) for v in vecs[i:b]])
+            except BaseException:
+                accept(E.done(), i)   # the inserts committed before the interrupt
+                sync()
+                raise
+            accept(flags, i)
+        sync()
         return out
 
     def _fill(self, ncols):
@@ -623,7 +756,7 @@ class _Block:
         keys = set()
         for v in cand:
             keys.update(v)
-        cols = sorted(keys, key=self._key_order) if self._key_order else list(keys)
+        cols = self._dense_cols(keys)
         idx = {k: i for i, k in enumerate(cols)}
         M = matrix(self._R, len(cand), len(cols),
                    {(i, idx[k]): c for i, v in enumerate(cand)
@@ -694,9 +827,15 @@ class _Block:
             sage: vs = [{i: 1, i + 1: 1} for i in range(60)] + [{0: 1, 2: -1}, {0: 1, 61: 1}]
             sage: flags = D._dense_insert_many(vs, range(62), greedy=False)
             sage: flags.count(True), D.rank(), D.contains({0: 1, 61: 1}), D._stale
-            (61, 61, True, True)
+            (61, 61, True, False)
             sage: D.pivots()[:3]
             [61, 60, 59]
+
+        The same solve gave the annihilator and the reduced echelon form (no
+        rebuild, no second exact computation): the latter is the exact one::
+
+            sage: D._E is not None and D._E == D._A.echelon_form().matrix_from_rows(range(61))
+            True
         """
         from sage.rings.finite_rings.finite_field_constructor import GF
         from sage.rings.rational_field import QQ
@@ -710,7 +849,8 @@ class _Block:
         else:
             return None
         Iset = set(I)
-        K = _kernel_columns(M.matrix_from_rows(I))
+        A = M.matrix_from_rows(I)            # the independent vectors, in order
+        K, E, P = _kernel_and_echelon(A)
         rej = [i for i in range(len(cand)) if i not in Iset]
         step = max(1, ANNIHILATOR_CHUNK // max(1, len(cols)))
         for a in range(0, len(rej), step):
@@ -727,7 +867,14 @@ class _Block:
         self._rows = {}
         # K's rows are the columns of M
         self._K = (list(cols), K) if K.ncols() <= ANNIHILATOR_MAX else None
-        self._stale = True
+        # the dense state from the same solve (M's columns are those of
+        # _dense_build, its independent rows those of _independent()): no
+        # rebuild, and the echelon form when its pivots are the profile
+        self._cols, self._colidx = list(cols), {k: i for i, k in enumerate(cols)}
+        self._A, self._AP = A, None
+        self._E = E
+        self._pivcols = P if P is not None else _column_profile(A)
+        self._stale = False
         return out
 
     def _annihilator_of_rows(self):

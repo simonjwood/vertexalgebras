@@ -564,6 +564,106 @@ class NFEchelon {
     PolyData row(uint32_t p) const { return out(S.rows.at(p).first); }
 };
 
+// ------------------------------------------------------------------------ //
+//  QQ (FLINT fmpq): the sparse phase of _keyed_spans._Block over QQ         //
+// ------------------------------------------------------------------------ //
+struct QFld {
+    struct E {
+        fmpq_t v;
+        explicit E(const QFld &) { fmpq_init(v); }
+        E(const E &o) { fmpq_init(v); fmpq_set(v, o.v); }
+        E(E &&o) noexcept { fmpq_init(v); fmpq_swap(v, o.v); }
+        E &operator=(const E &o) { if (this != &o) fmpq_set(v, o.v); return *this; }
+        E &operator=(E &&o) noexcept { fmpq_swap(v, o.v); return *this; }
+        ~E() { fmpq_clear(v); }
+    };
+    bool is_zero(const E &a) const { return fmpq_is_zero(a.v); }
+    void add(E &a, const E &b) const { fmpq_add(a.v, a.v, b.v); }
+    void mul(E &r, const E &a, const E &b) const { fmpq_mul(r.v, a.v, b.v); }
+    void neg(E &r, const E &a) const { fmpq_neg(r.v, a.v); }
+    void inv(E &r, const E &a) const { fmpq_inv(r.v, a.v); }
+    void set_si(E &a, slong s) const { fmpq_set_si(a.v, s, 1); }
+};
+
+// (key id or label index, (numerator, denominator))
+using QData = std::vector<std::pair<uint32_t, std::pair<Num, Num>>>;
+
+class QEchelon {
+  public:
+    QFld F;
+    SparseRREF<QFld> S;
+    std::vector<bool> done;     // flags of the last batch (also when interrupted)
+    explicit QEchelon(bool combos) : S(F, combos) {}
+    using Vec = SparseRREF<QFld>::Vec;
+    void set_rank(uint32_t k, int64_t r) { S.set_rank(k, r); }
+    void set_nlabels(uint32_t n) { S.nlabels = n; }
+    Vec in(const QData &d) const {
+        Vec v;
+        Z n, m;
+        for (const auto &t : d) {
+            num_get(n.v, t.second.first);
+            num_get(m.v, t.second.second);
+            if (fmpz_is_zero(n.v)) continue;
+            if (fmpz_is_zero(m.v)) throw std::invalid_argument("zero denominator");
+            QFld::E c(F);
+            fmpq_set_fmpz_frac(c.v, n.v, m.v);
+            auto it = v.find(t.first);
+            if (it == v.end()) v.emplace(t.first, std::move(c));
+            else {
+                F.add(it->second, c);
+                if (F.is_zero(it->second)) v.erase(it);
+            }
+        }
+        return v;
+    }
+    static QData out(const Vec &v) {
+        std::vector<uint32_t> ks;
+        for (const auto &kv : v) ks.push_back(kv.first);
+        std::sort(ks.begin(), ks.end());
+        QData d;
+        for (uint32_t k : ks) {
+            const QFld::E &c = v.at(k);
+            d.emplace_back(k, std::make_pair(num_of(fmpq_numref(c.v)), num_of(fmpq_denref(c.v))));
+        }
+        return d;
+    }
+    // an existing row (pivot, row, combo), e.g. of a Python block
+    void load_row(uint32_t p, const QData &row, const QData &combo) {
+        if (S.rows.count(p)) throw std::invalid_argument("pivot already loaded");
+        S.rows.emplace(p, std::make_pair(in(row), in(combo)));
+        S.pivot_order.push_back(p);
+    }
+    std::vector<bool> insert_many(const std::vector<QData> &vs, PollFn pl) {
+        S.poll = pl;
+        done.clear();
+        try {
+            for (const QData &d : vs) done.push_back(S.insert(in(d)));
+        } catch (...) {
+            S.poll = nullptr;
+            throw;              // done: the inserts committed before
+        }
+        S.poll = nullptr;
+        return done;
+    }
+    // the fill of _Block._fill: (entries of rows and combos) / (r (ncols + r))
+    double fill(int64_t ncols) const {
+        size_t r = S.rows.size();
+        if (!r) return 0.0;
+        size_t n = 0;
+        for (const auto &kv : S.rows) n += kv.second.first.size() + kv.second.second.size();
+        return (double)n / ((double)r * (double)(ncols + (int64_t)r));
+    }
+    // all rows: (pivot, row, combo), pivots in insertion order
+    std::vector<std::pair<uint32_t, std::pair<QData, QData>>> rows() const {
+        std::vector<std::pair<uint32_t, std::pair<QData, QData>>> o;
+        for (uint32_t p : S.pivot_order) {
+            const auto &rc = S.rows.at(p);
+            o.emplace_back(p, std::make_pair(out(rc.first), out(rc.second)));
+        }
+        return o;
+    }
+};
+
 // The right kernel modulo p (a word-size prime) of the nrows x ncols matrix
 // whose entries are the sums of the triplets (rows[t], cols[t], vals[t])
 // (vals reduced mod p): by one dense reduced echelon form (FLINT
