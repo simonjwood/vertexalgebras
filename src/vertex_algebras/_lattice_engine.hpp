@@ -115,6 +115,11 @@ struct LatticeEngineBase {
                                                 const std::vector<long> &ns, const std::vector<int> &ib,
                                                 const EpsData &eps, int nthreads, PollFn poll) = 0;
     virtual std::vector<size_t> cache_sizes() const = 0;
+    // Engines of a module V_{λ+L}: the second vector of every product is a
+    // module vector e^{λ+s} given by s; off = (B(x_i, λ))_i is added wherever
+    // its lattice part enters (B(q, p), the zero modes B(x_i, p)).  Set it
+    // before the first product (the caches assume one offset).
+    virtual void set_offset(const std::vector<long> &off) = 0;
 };
 
 template <class Ring>
@@ -157,6 +162,8 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
     uint64_t uid = engine_uids.fetch_add(1);   // owner of the per-thread caches
     int r;                                  // rank
     std::vector<std::vector<long>> B;       // Gram matrix
+    std::vector<long> off;                  // B(x_i, λ) for a module V_{λ+L} (set_offset)
+    bool has_off = false;
     RingQ Q;
     MonoTable hmons, qtab;                  // Heisenberg monomials, lattice vectors
     CMap<uint32_t> hprod_map, hdrop_map, letter_map, full_map;
@@ -200,6 +207,20 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
             if (q[i])
                 for (int j = 0; j < r; j++) s += q[i] * B[i][j] * p[j];
         return s;
+    }
+    // B(q, p) for p the lattice part of the SECOND vector of a product (a
+    // module vector e^{λ+p} when an offset is set: B(q, λ + p))
+    long pform(const std::vector<long> &q, const std::vector<long> &p) const {
+        long s = form(q, p);
+        if (has_off)
+            for (int i = 0; i < r; i++) s += q[i] * off[i];
+        return s;
+    }
+    void set_offset(const std::vector<long> &o) override {
+        if ((int)o.size() != r) throw std::invalid_argument("offset of the wrong length");
+        off = o;
+        has_off = false;
+        for (long x : off) has_off = has_off || x != 0;
     }
     long bxq(int i, const std::vector<long> &q) const {     // B(x_i, q)
         long s = 0;
@@ -291,7 +312,7 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
     }
     long nmax(uint32_t a, uint32_t b) {      // largest n with a_(n) b possibly nonzero
         auto sa = split(a), sb = split(b);
-        return degree(sa.first) + degree(sb.first) - 1 - form(qvec(sa.second), qvec(sb.second));
+        return degree(sa.first) + degree(sb.first) - 1 - pform(qvec(sa.second), qvec(sb.second));
     }
 
     // -- rational helpers ------------------------------------------------------ //
@@ -402,7 +423,7 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
     Series ann(int i, long k, const Series &ser, const std::vector<long> &p) {
         const std::vector<long> &row = B[i];
         long sgn = (k & 1) ? -1 : 1;
-        long c0 = 0;
+        long c0 = has_off ? off[i] : 0;            // B(x_i, p) (+ B(x_i, λ))
         for (int j = 0; j < r; j++) c0 += row[j] * p[j];
         Z f;
         QE f0(Q), s(Q), t(Q);
@@ -667,76 +688,113 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
     // a's, larger first, dynamically), then eps E^- for each n (threads: the
     // Heisenberg monomials of Wsum, id % T).  Only sums are merged (exact:
     // the same result for any number of threads).
-    std::map<long, Elem> sums(const std::vector<Group> &groups, const EpsMap &eps, int nthreads) {
-        std::map<long, Elem> res;
-        for (const Group &g : groups) {
-            auto ie = eps.find(pk(g.q, g.p));
-            if (ie == eps.end()) throw std::invalid_argument("missing cocycle value");
-            std::vector<long> q = qvec(g.q), p = qvec(g.p);
-            long Bqp = form(q, p);
-            long nmin = *std::min_element(g.gns.begin(), g.gns.end());
-            long wmax = -nmin - 1 - Bqp;
-            std::vector<long> qp(r);
-            for (int i = 0; i < r; i++) qp[i] = q[i] + p[i];
-            uint32_t qpid = qintern(qp);
-            std::map<uint32_t, std::vector<std::pair<uint32_t, const C *>>> by_a;
-            size_t big = 0;
-            for (const Item &it : g.items) {
-                by_a[it.a].emplace_back(it.b, it.c);
-                big = std::max(big, (size_t)(monos[it.a].letters.size() + monos[it.b].letters.size()));
+    // one (q, p) group: the coefficients of z^{-n-1} for its n, before the
+    // cocycle value (threads inside the group: the a's, then the Heisenberg
+    // monomials of Wsum)
+    std::map<long, Elem> group_sum(const Group &g, int nthreads) {
+        std::vector<long> q = qvec(g.q), p = qvec(g.p);
+        long Bqp = pform(q, p);
+        long nmin = *std::min_element(g.gns.begin(), g.gns.end());
+        long wmax = -nmin - 1 - Bqp;
+        std::vector<long> qp(r);
+        for (int i = 0; i < r; i++) qp[i] = q[i] + p[i];
+        uint32_t qpid = qintern(qp);
+        std::map<uint32_t, std::vector<std::pair<uint32_t, const C *>>> by_a;
+        size_t big = 0;
+        for (const Item &it : g.items) {
+            by_a[it.a].emplace_back(it.b, it.c);
+            big = std::max(big, (size_t)(monos[it.a].letters.size() + monos[it.b].letters.size()));
+        }
+        std::vector<std::pair<uint32_t, const std::vector<std::pair<uint32_t, const C *>> *>> as;
+        for (const auto &kv : by_a) as.emplace_back(kv.first, &kv.second);
+        std::stable_sort(as.begin(), as.end(), [this](const auto &x, const auto &y) {
+            return monos[x.first].letters.size() > monos[y.first].letters.size();
+        });
+        bool threaded = nthreads > 1 && as.size() > 1 &&
+                        (g.items.size() >= MIN_THREADED_JOBS || big >= MIN_THREADED_LETTERS + (size_t)r);
+        uint32_t T1 = threaded ? (uint32_t)std::min((size_t)nthreads, as.size()) : 1;
+        std::vector<SerC> part(T1);
+        std::atomic<size_t> next{0};
+        this->run_parallel((int)T1, [&](int t) {
+            for (;;) {
+                size_t k = next.fetch_add(1);
+                if (k >= as.size()) break;
+                a_series(as[k].first, *as[k].second, g.q, p, wmax, part[(size_t)t]);
             }
-            std::vector<std::pair<uint32_t, const std::vector<std::pair<uint32_t, const C *>> *>> as;
-            for (const auto &kv : by_a) as.emplace_back(kv.first, &kv.second);
-            std::stable_sort(as.begin(), as.end(), [this](const auto &x, const auto &y) {
-                return monos[x.first].letters.size() > monos[y.first].letters.size();
-            });
-            bool threaded = nthreads > 1 && as.size() > 1 &&
-                            (g.items.size() >= MIN_THREADED_JOBS || big >= MIN_THREADED_LETTERS + (size_t)r);
-            uint32_t T1 = threaded ? (uint32_t)std::min((size_t)nthreads, as.size()) : 1;
-            std::vector<SerC> part(T1);
-            std::atomic<size_t> next{0};
-            this->run_parallel((int)T1, [&](int t) {
-                for (;;) {
-                    size_t k = next.fetch_add(1);
-                    if (k >= as.size()) break;
-                    a_series(as[k].first, *as[k].second, g.q, p, wmax, part[(size_t)t]);
-                }
-            });
-            SerC Wsum = std::move(part[0]);
-            for (uint32_t t = 1; t < T1; t++)
-                for (auto &pd : part[t]) {
-                    Elem &dst = Wsum[pd.first];
-                    for (auto &kv : pd.second) acc(dst, kv.first, kv.second);
-                }
-            size_t work = 0;
-            for (const auto &pd : Wsum) work += pd.second.size();
-            uint32_t T = (nthreads > 1 && work >= PAR_SUM_TERMS / 8) ? (uint32_t)nthreads : 1;
-            std::vector<std::map<long, Elem>> outs(T);
-            this->run_parallel((int)T, [&](int t) {
-                C x(R);
-                for (long n : g.gns) {
-                    Elem &out = outs[(size_t)t][n];
-                    for (const auto &pd : Wsum) {
-                        long sig = -n - 1 - Bqp - pd.first;
-                        if (sig < 0 || pd.second.empty()) continue;
-                        const QElem &S = schur(g.q, sig);
-                        for (const auto &kw : pd.second) {
-                            if (kw.first % T != (uint32_t)t) continue;
-                            for (const auto &ks : S) {
-                                R.mul_fmpq(x, kw.second, ks.second.p);
-                                acc(out, full(hmul(kw.first, ks.first), qpid), x);
-                            }
+        });
+        SerC Wsum = std::move(part[0]);
+        for (uint32_t t = 1; t < T1; t++)
+            for (auto &pd : part[t]) {
+                Elem &dst = Wsum[pd.first];
+                for (auto &kv : pd.second) acc(dst, kv.first, kv.second);
+            }
+        size_t work = 0;
+        for (const auto &pd : Wsum) work += pd.second.size();
+        uint32_t T = (nthreads > 1 && work >= PAR_SUM_TERMS / 8) ? (uint32_t)nthreads : 1;
+        std::vector<std::map<long, Elem>> outs(T);
+        this->run_parallel((int)T, [&](int t) {
+            C x(R);
+            for (long n : g.gns) {
+                Elem &out = outs[(size_t)t][n];
+                for (const auto &pd : Wsum) {
+                    long sig = -n - 1 - Bqp - pd.first;
+                    if (sig < 0 || pd.second.empty()) continue;
+                    const QElem &S = schur(g.q, sig);
+                    for (const auto &kw : pd.second) {
+                        if (kw.first % T != (uint32_t)t) continue;
+                        for (const auto &ks : S) {
+                            R.mul_fmpq(x, kw.second, ks.second.p);
+                            acc(out, full(hmul(kw.first, ks.first), qpid), x);
                         }
                     }
                 }
-            });
-            for (long n : g.gns) {
-                Elem part_n = std::move(outs[0][n]);
-                for (uint32_t t = 1; t < T; t++)
-                    for (auto &kv : outs[t][n]) acc(part_n, kv.first, kv.second);
-                add_scaled(res[n], part_n, ie->second);
             }
+        });
+        std::map<long, Elem> res;
+        for (long n : g.gns) {
+            Elem part_n = std::move(outs[0][n]);
+            for (uint32_t t = 1; t < T; t++)
+                for (auto &kv : outs[t][n]) acc(part_n, kv.first, kv.second);
+            res[n] = std::move(part_n);
         }
+        return res;
+    }
+
+    // per (q, p) group the sum of its products, times eps(q, p).  Many groups
+    // (at least 2 per thread): the threads take whole groups (largest first,
+    // each computed serially), so that a sum of many small groups does not
+    // start threads per group; few groups: threads inside each group.  The
+    // groups are added in their order (exact: the same result for any number
+    // of threads).
+    std::map<long, Elem> sums(const std::vector<Group> &groups, const EpsMap &eps, int nthreads) {
+        std::vector<const C *> scale(groups.size());
+        for (size_t k = 0; k < groups.size(); k++) {
+            auto ie = eps.find(pk(groups[k].q, groups[k].p));
+            if (ie == eps.end()) throw std::invalid_argument("missing cocycle value");
+            scale[k] = &ie->second;
+        }
+        std::map<long, Elem> res;
+        if (nthreads > 1 && groups.size() >= 2 * (size_t)nthreads) {
+            std::vector<size_t> order(groups.size());
+            for (size_t k = 0; k < order.size(); k++) order[k] = k;
+            std::stable_sort(order.begin(), order.end(), [&](size_t x, size_t y) {
+                return groups[x].items.size() > groups[y].items.size();
+            });
+            std::vector<std::map<long, Elem>> parts(groups.size());
+            std::atomic<size_t> next{0};
+            this->run_parallel(nthreads, [&](int) {
+                for (;;) {
+                    size_t k = next.fetch_add(1);
+                    if (k >= order.size()) break;
+                    parts[order[k]] = group_sum(groups[order[k]], 1);
+                }
+            });
+            for (size_t k = 0; k < groups.size(); k++)
+                for (auto &kv : parts[k]) add_scaled(res[kv.first], kv.second, *scale[k]);
+            return res;
+        }
+        for (size_t k = 0; k < groups.size(); k++)
+            for (auto &kv : group_sum(groups[k], nthreads)) add_scaled(res[kv.first], kv.second, *scale[k]);
         return res;
     }
     std::map<long, Elem> products(const std::vector<Item> &items, const std::vector<long> &ns, const EpsMap &eps,

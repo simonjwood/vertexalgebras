@@ -55,6 +55,7 @@ cdef extern from "_lattice_engine.hpp" namespace "vae":
                                        const vector[long] &, const vector[int] &, const EpsData &,
                                        int, PollFn) except +_raise_error nogil
         vector[size_t] cache_sizes()
+        void set_offset(const vector[long] &) except +_raise_error
     LatticeEngineBase *make_lattice_engine(string, vector[vector[long]], long,
                                            unsigned long, const CoefData &) except +_raise_error
 
@@ -163,6 +164,30 @@ cdef class Engine:
             d.ps.push_back([int(x) for x in p])
             d.vals.push_back(_coef_in(terms))
         return d
+
+    def set_offset(self, off):
+        """
+        Make this an engine of a module ``V_{λ+L}``: the second vector of
+        every product is ``e^{λ+s}``, given by its key ``(letters, s)``;
+        ``off`` is ``(B(x_i, λ))_i`` (integers).  Call it on a new engine,
+        before any product.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._lattice_engine import Engine
+            sage: eps = [((-1,), (0,), [((), 1, 1)])]
+            sage: f, v = ((), (-1,)), ((), (0,))     # e^{-α}, and s = 0: e^{α/2}
+            sage: Engine('q', [[2]]).ope_mono(f, v, eps)      # V_L: B(-α, 0) = 0, no pole
+            []
+            sage: E = Engine('q', [[2]]); E.set_offset([1])   # V_{α/2+L}: B(x, α/2) = 1
+            sage: E.ope_mono(f, v, eps)                         # a simple pole: e^{-α/2}, s = -1
+            [[(((), (-1,)), [((), 1, 1)])]]
+            sage: E.set_offset([1, 2])
+            Traceback (most recent call last):
+            ...
+            ValueError: offset of the wrong length
+        """
+        self.e.set_offset([int(x) for x in off])
 
     def intern(self, key):
         """

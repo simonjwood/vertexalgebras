@@ -20,10 +20,13 @@ included).  For an odd lattice the module is super, ``e^{λ+q}`` of parity
 ``B(q, q)``.  Basis keys ``(letters, p)`` as for ``V_L``, ``p`` a tuple of
 rationals in the coordinates of the basis of ``L``.
 
-The action is computed by the Python kernel of
-:class:`lattice_vertex_algebra.LatticeVertexAlgebra` (letter series and
-``E^-``), which uses ``p`` only through ``B(q, p)`` and ``B(x_i, p)``
-(integers for ``p ∈ L°``).
+The action uses ``p`` only through ``B(q, p)`` and ``B(x_i, p)``
+(integers for ``p ∈ L°``).  It is computed by the C++ lattice engine of
+``V`` (a separate engine per module, whose second vectors are the
+``e^{λ+s}`` given by ``s``, with the offset ``B(x_i, λ)``; threads of
+:class:`~vertex_algebras.vertex_algebra.VertexAlgebraParallelism`), or by
+the Python kernel of :class:`lattice_vertex_algebra.LatticeVertexAlgebra`
+(letter series and ``E^-``) for the rings the engine does not take.
 
 EXAMPLES:
 
@@ -573,6 +576,7 @@ class LatticeVertexAlgebraModule(VertexAlgebraModule):
         """
         VertexAlgebraModule.clear_caches(self)
         self._ls_cache.clear()
+        self._engine_cache = None
 
     # ------------------------------------------------------------------ #
     #  The action                                                          #
@@ -628,12 +632,151 @@ class LatticeVertexAlgebraModule(VertexAlgebraModule):
         V = self._V
         if n > self._nmax_key(a, m):
             return {}
+        E = self._engine()
+        if E is not None:
+            r = E.nprod({a: self._one_R}, int(n), {(m[0], self._shift(m[1])): self._one_R}, 1)
+            if r is not None:
+                return self._unshift(r)
+        return self._action_key_py(a, n, m)
+
+    def _action_key_py(self, a, n, m):
+        """
+        :meth:`_action_key` in Python (the letter series and ``E^-`` of
+        ``V``'s Python kernel), also the fallback of the engine.
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: L0 = va.Lattice(QQ, matrix([[2]])); J = L0.J(0)
+            sage: V = L0.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
+            sage: a, m = (((0, 0),), (1,)), (((0, 1),), (-1/2,))
+            sage: all(M._action_key_py(a, n, m) == M._action_key(a, n, m) for n in range(-3, 4))
+            True
+        """
+        V = self._V
+        if n > self._nmax_key(a, m):
+            return {}
         q, p = a[1], m[1]
         Bqp = int(V._form(q, p))
         W = V._letter_series_py(a, m, -n - 1 - Bqp, self._ls_cache)
         if not W:
             return {}
         return V._eminus_py(q, p, W, n, Bqp, V._eps(q, self._shift(p)))
+
+    def _engine(self):
+        r"""
+        The C++ lattice engine of this module, or ``None``: a new engine of
+        ``V``'s kind whose second vectors are the module vectors
+        ``e^{λ+s}``, given by ``s`` (the offset ``B(x_i, λ)``); ``None`` when
+        ``V`` has no engine (``implementation='python'``, other rings).
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2, -1], [-1, 2]])); M = V.simple_modules()[1]
+            sage: E = M._engine(); E is None or E is M._engine()
+            True
+            sage: va.Lattice(QQ, matrix([[2]]), implementation='python').simple_module([1/2])._engine() is None
+            True
+        """
+        E = self.__dict__.get('_engine_cache')
+        if E is None and not self.__dict__.get('_no_engine', False):
+            V = self._V
+            E = V._build_engine() if V._engine() is not None else None
+            if E is None:
+                self._no_engine = True
+            else:
+                B = V._B
+                E._E.set_offset([int(sum(B[i][j] * self._lam[j] for j in range(len(self._lam))))
+                                 for i in range(len(self._lam))])
+                self._engine_cache = E
+        return E
+
+    def _shifted(self, d):
+        """
+        A raw dict of this module with keys ``(letters, p - λ)`` (the keys of
+        the module's engine).
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: M = va.Lattice(QQ, matrix([[2]])).simple_module([1/2])
+            sage: M._shifted({((), (3/2,)): 2})
+            {((), (1,)): 2}
+            sage: M._unshift(M._shifted({((), (3/2,)): 2}))
+            {((), (3/2,)): 2}
+        """
+        R = self._V.base_ring()
+        return {(m[0], self._shift(m[1])): R(c) for m, c in d.items()}
+
+    def _unshift(self, d):
+        """
+        The inverse of :meth:`_shifted`.
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: M = va.Lattice(QQ, matrix([[2]])).simple_module([1/2])
+            sage: M._unshift({((), (-1,)): 1})
+            {((), (-1/2,)): 1}
+        """
+        cache = self.__dict__.setdefault('_unshift_cache', {})
+        out = {}
+        for m, c in d.items():
+            p = cache.get(m[1])
+            if p is None:
+                p = cache[m[1]] = tuple(x + y for x, y in zip(self._lam, m[1]))
+            out[(m[0], p)] = c
+        return out
+
+    def _action_raw(self, dA, n, dM):
+        r"""
+        ``A_(n) M`` for raw dicts, by one engine call (threads of
+        :class:`~vertex_algebras.vertex_algebra.VertexAlgebraParallelism`)
+        if there is an engine.
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2, -1], [-1, 2]])); M = V.simple_modules()[1]
+            sage: Mp = va.Lattice(QQ, matrix([[2, -1], [-1, 2]]), implementation='python').simple_modules()[1]
+            sage: dA = {(((0, 0), (1, 0)), (1, 0)): 1, ((), (-1, 1)): 2}
+            sage: dM = {(((1, 1),), (1/3, 2/3)): 1, ((), (-2/3, -1/3)): -1}
+            sage: all(M._action_raw(dA, n, dM) == Mp._action_raw(dA, n, dM) for n in range(-3, 3))
+            True
+        """
+        E = self._engine()
+        if E is not None and dA and dM:
+            R = self._V.base_ring()
+            r = E.nprod({a: R(c) for a, c in dA.items()}, int(n), self._shifted(dM),
+                        self._V._nthreads())
+            if r is not None:
+                return self._unshift(r)
+        return VertexAlgebraModule._action_raw(self, dA, n, dM)
+
+    def _action_raw_batch(self, els, vecs, tasks):
+        r"""
+        ``[els[e]_(n) vecs[v] for (e, n, v) in tasks]`` (raw dicts) in one
+        engine call, or ``None`` without an engine.
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Lattice(QQ, matrix([[2]])); M = V.simple_module([1/2])
+            sage: els = [{((), (1,)): 1}, {(((0, 0),), (0,)): 1}]; vecs = [{((), (-1/2,)): 1}]
+            sage: r = M._action_raw_batch(els, vecs, [(0, -1, 0), (1, 0, 0)])
+            sage: r is None or r == [M._action_raw(els[0], -1, vecs[0]), M._action_raw(els[1], 0, vecs[0])]
+            True
+        """
+        E = self._engine()
+        if E is None:
+            return None
+        k = len(els)
+        R = self._V.base_ring()
+        r = E.nprod_many([{a: R(c) for a, c in el.items()} for el in els] +
+                         [self._shifted(v) for v in vecs],
+                         [(e, n, k + v) for e, n, v in tasks], self._V._nthreads())
+        return None if r is None else [self._unshift(x) for x in r]
 
     def _parity_key(self, m):
         """

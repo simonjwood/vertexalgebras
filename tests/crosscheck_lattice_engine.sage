@@ -221,5 +221,64 @@ LC = LatticeVertexAlgebra(QQ, matrix([[12]]), names='K', implementation='python'
 sc, smc = (LC._from_dict(dict(Z._monomial_coefficients)) for Z in (small, smallm))
 check(srt(raw(sc.ope(smc))) == srt(ref), 'results after Ctrl-C differ from the core')
 
+# Modules V_{λ+L}: each module has its own engine (offset B(x_i, λ)); the
+# actions agree with the Python kernel on all keys up to a depth, in
+# batches and with threads
+from vertex_algebras import Lattice as _Lattice
+Rc = QQ['c']; c = Rc.gen(); Fc = Rc.fraction_field(); K5 = QuadraticField(5)
+
+
+def _module_pair(R, B, bg=None):
+    out = []
+    for impl in (None, 'python'):
+        V = _Lattice(R, matrix(B), implementation=impl)
+        r = len(B)
+        Js = [V.J(i) for i in range(r)]
+        if matrix(QQ, B).det() and all(B[i][i] % 2 == 0 for i in range(r)) and matrix(QQ, B).is_positive_definite():
+            Bi = matrix(QQ, B).inverse()
+            T = sum(Bi[i, j] * Js[i].no(Js[j]) for i in range(r) for j in range(r)) / 2
+            if bg is not None:
+                T = T + bg * Js[0].derivative()
+            V = V.with_conformal_vector(T)
+        out.append(V)
+    return out
+
+
+def _keys(r, lam, letters_max, qrange):
+    import itertools
+    L = [(), ((0, 0),), ((0, 1),), ((0, 0), (0, 0))] + ([((r - 1, 0),)] if r > 1 else [])
+    L = L[:letters_max]
+    qs = list(itertools.product(qrange, repeat=r))
+    return [(l, tuple(QQ(x) + y for x, y in zip(q, lam))) for l in L for q in qs]
+
+
+for name, R, B, bg in [('A2', QQ, [[2, -1], [-1, 2]], None), ('Z, B = 3 (odd)', QQ, [[3]], None),
+                       ('[[0, 3], [3, 0]] (indefinite)', QQ, [[0, 3], [3, 0]], None),
+                       ('D4', QQ, [[2, -1, 0, 0], [-1, 2, -1, -1], [0, -1, 2, 0], [0, -1, 0, 2]], None),
+                       ('A2 over Q(sqrt 5)', K5, [[2, -1], [-1, 2]], None),
+                       ('A1 over Q(c), background charge', Fc, [[2]], c)]:
+    Ve, Vp = _module_pair(R, B, bg)
+    r = len(B)
+    for Me in Ve.simple_modules()[1:3]:
+        lam = Me.coset_representative()
+        Mp = Vp.simple_module(list(lam))
+        qr = range(-1, 2) if r < 4 else range(0, 2)
+        ak = _keys(r, (0,) * r, 4 if r < 4 else 2, qr)
+        mk = _keys(r, lam, 4 if r < 4 else 2, qr)
+        ok = all(Me._action_key(a, n, m) == Mp._action_key(a, n, m)
+                 for a in ak for m in mk for n in range(-3, 3))
+        check(ok and Me._engine() is not None, 'module %s, λ = %s: engine = Python' % (name, lam))
+        els = [{a: 1} for a in ak[:8]]
+        vecs = [{m: 1} for m in mk[:8]]
+        tasks = [(i, n, j) for i in range(len(els)) for j in range(len(vecs)) for n in (-2, -1, 0, 1)]
+        set_nproc(1)
+        b1 = Me._action_raw_batch(els, vecs, tasks)
+        set_nproc(_threads(4))
+        b4 = Me._action_raw_batch(els, vecs, tasks)
+        set_nproc(1)
+        ref = [Mp._action_raw(els[i], n, vecs[j]) for i, n, j in tasks]
+        check(b1 == ref and b4 == ref, 'module %s, λ = %s: batches, threads' % (name, lam))
+    print('module %-34s ok' % name)
+
 print('crosscheck lattice engine: %d checks, mismatches: %d' % (checked, mismatches))
 print('RESULT:', 'PASS' if mismatches == 0 else 'FAIL')
