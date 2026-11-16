@@ -207,6 +207,10 @@ sage: Q.zhu_algebra_up_to(6).dimension()
 2
 ```
 
+For more examples, see the [notebooks](https://github.com/simonjwood/vertexalgebras/tree/main/examples)
+(their index:
+[examples/README.md](https://github.com/simonjwood/vertexalgebras/blob/main/examples/README.md)).
+
 ## Documentation
 
 - The docstrings, with examples: e.g. `UniversalVertexAlgebra?` in Sage.
@@ -244,6 +248,17 @@ CR and SW thank Sven Möller and David Ridout for helpful discussions.
 CR’s research is supported by the Deutsche Forschungsgemeinschaft through
 the Collaborative Research Centre 1624: Higher Structures, Moduli Spaces
 and Integrability, project number 506632645.
+
+### Use of AI
+
+Almost all of the source code was written with Claude Code (Anthropic),
+under the direction of the authors. The authors designed the API, chose
+the constructions and algorithms to support and the examples to present,
+and checked the results against the literature. Every function is tested
+by doctests, and the computations are cross-checked between independent
+implementations and against known results. A line-by-line human review of
+the code is planned; it will progress slowly while features are still
+being added.
 
 ### Software
 
