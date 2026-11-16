@@ -42,7 +42,7 @@ The Virasoro algebra acting on itself::
     Category of conformally graded modules with basis over Universal vertex algebra on generators ['L'] over Rational Field
     sage: v = M(L.no(L)); L.ope(v)
     [2*:dL L: + 1/6*d^3L, 4*:L L:, 3*dL, 17/2*L, 0, 3/2*|0>]
-    sage: L.mode(v, 0) == 4*v, L * v == M(L.no(L.no(L))), v.degree()
+    sage: L.mode(v, 0) == 4*v, L.no(v) == M(L.no(L.no(L))), v.degree()
     (True, True, 4)
     sage: M.character(8) == Vir.character(8)
     True
@@ -121,7 +121,7 @@ class VertexAlgebraModuleElement(IndexedFreeModuleElement):
         sage: M = V.verma_module(1/16); v = M.highest_weight_vector()
         sage: x = L.mode(v, -1); x, x.parent() is M
         (L_{-1} v, True)
-        sage: L.mode(x, 1), L * v == L.nproduct(v, -1)
+        sage: L.mode(x, 1), L.no(v) == L.nproduct(v, -1)
         (1/8*v, True)
     """
 
@@ -173,8 +173,10 @@ class VertexAlgebraModuleElement(IndexedFreeModuleElement):
 
 
 class _NormallyOrderedAction(Action):
-    """``a * m = a_(-1) m``, ``a`` in the vertex algebra, ``m`` in the
-    module (the convention ``a * b = a_(-1) b`` of the vertex algebra).
+    """``a * m`` for ``a`` in the vertex algebra and ``m`` in the module:
+    refused, like ``a * b`` in the vertex algebra (``a * b * m`` would be
+    ``(a * b) * m``); use ``a.no(m)``, ``a.nproduct(m, n)`` or
+    ``V.normally_ordered(a, b, m)``.
 
     TESTS::
 
@@ -183,8 +185,12 @@ class _NormallyOrderedAction(Action):
         sage: M = V.verma_module(1/16); v = M.highest_weight_vector()
         sage: act = M._get_action_(V, operator.mul, False); act
         Left action by Universal vertex algebra on generators ['L'] over Rational Field on Verma module ...
-        sage: act(L, v), L * v
-        (L_{-2} v, L_{-2} v)
+        sage: L * v
+        Traceback (most recent call last):
+        ...
+        TypeError: * is not the action of vertex algebra elements on module vectors: use a.no(m) = a_(-1) m, a.nproduct(m, n), or V.normally_ordered(a, b, m) (also V.no(a, b, m)) for a_(-1) b_(-1) m
+        sage: L.no(v), V.no(L, L, v)
+        (L_{-2} v, L_{-2} L_{-2} v)
     """
 
     def __init__(self, V, M):
@@ -202,7 +208,7 @@ class _NormallyOrderedAction(Action):
 
     def _act_(self, a, m):
         """
-        ``a_(-1) m``.
+        Refuse ``a * m`` (see the class).
 
         TESTS::
 
@@ -210,9 +216,14 @@ class _NormallyOrderedAction(Action):
             sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L'); L = V.gen('L')
             sage: M = V.verma_module(1/16); v = M.highest_weight_vector()
             sage: M._get_action_(V, operator.mul, False)._act_(L, v)
-            L_{-2} v
+            Traceback (most recent call last):
+            ...
+            TypeError: * is not the action of vertex algebra elements on module vectors: ...
         """
-        return self.codomain()._action(a, -1, m)
+        raise TypeError('* is not the action of vertex algebra elements on '
+                        'module vectors: use a.no(m) = a_(-1) m, '
+                        'a.nproduct(m, n), or V.normally_ordered(a, b, m) '
+                        '(also V.no(a, b, m)) for a_(-1) b_(-1) m')
 
 
 class VertexAlgebraModule(_ArtFromRepr, CombinatorialFreeModule):
@@ -1718,7 +1729,9 @@ class VertexAlgebraModule(_ArtFromRepr, CombinatorialFreeModule):
 
     def _get_action_(self, S, op, self_on_left):
         """
-        The action ``a * m = a_(-1) m`` of the vertex algebra on the left.
+        The action of ``*`` of the vertex algebra on the left, which
+        refuses ``a * m`` with a pointer to ``a.no(m)`` (a Sage error
+        would only say that ``*`` is not defined).
 
         TESTS::
 
@@ -1870,7 +1883,7 @@ class AdjointModule(VertexAlgebraModule):
         sage: M = BC.adjoint_module(); M.category()
         Category of conformally graded super modules with basis over Universal vertex algebra on generators ['b', 'c'] over Rational Field
         sage: b, c = BC.gens()
-        sage: m = M(c); b.ope(m), (b * m).parity(), M(b) is b
+        sage: m = M(c); b.ope(m), b.no(m).parity(), M(b) is b
         ([|0>], 0, False)
         sage: M is BC.adjoint_module(), loads(dumps(M)) is M
         (True, True)
@@ -1897,7 +1910,7 @@ class AdjointModule(VertexAlgebraModule):
         sage: def acts_as_V(V, weights):
         ....:     M = V.adjoint_module()
         ....:     B = [V.monomial(m) for w in weights for m in V.weight_space(w).basis_keys()][:8]
-        ....:     return all(x.ope(M(y)) == [M(p) for p in x.ope(y)] and x * M(y) == M(x*y)
+        ....:     return all(x.ope(M(y)) == [M(p) for p in x.ope(y)] and x.no(M(y)) == M(x.no(y))
         ....:                and x.mode(M(y), 1 - x.degree()) == M(x.mode(y, 1 - x.degree()))
         ....:                for x in B for y in B)
         sage: N1 = va.NeveuSchwarz(QQ, 7/10, conformal_vector='L')

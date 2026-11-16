@@ -1228,7 +1228,7 @@ class UniversalVertexAlgebra(VertexAlgebra):
         dJ
         sage: J.derivative(2)
         d^2J
-        sage: J * J
+        sage: J.no(J)
         :J J:
         sage: J.no(J)
         :J J:
@@ -1526,7 +1526,7 @@ class UniversalVertexAlgebra(VertexAlgebra):
             sage: V.central_charge(), V.degrees(), V.conformal_vector()
             (2, {'b': 1, 'g': 0}, -:dg b:)
             sage: b, g = V.gens()
-            sage: b.no(b).horizontal_grade(), (b*g).degree()
+            sage: b.no(b).horizontal_grade(), b.no(g).degree()
             (2, 1)
             sage: UniversalVertexAlgebra(QQ, E, {('b', 'g'): [-1]},
             ....:                        degrees={'b': 1, 'g': 1})
@@ -1731,7 +1731,7 @@ class UniversalVertexAlgebra(VertexAlgebra):
             sage: W.<x, y> = UniversalVertexAlgebra(QQ)
             sage: W
             Universal vertex algebra on generators ['x', 'y'] over Rational Field
-            sage: x * y
+            sage: x.no(y)
             :x y:
         """
         if n > len(self._gens):
@@ -2028,9 +2028,9 @@ class UniversalVertexAlgebra(VertexAlgebra):
 
             sage: import vertex_algebras as va
             sage: V = va.Virasoro(QQ, 1/2)
-            sage: L = V.gen('L'); x = (L*L).ope(L)
+            sage: L = V.gen('L'); x = L.no(L).ope(L)
             sage: V.clear_caches()
-            sage: (L*L).ope(L) == x
+            sage: L.no(L).ope(L) == x
             True
         """
         VertexAlgebra.clear_caches(self)
@@ -2996,7 +2996,7 @@ class UniversalVertexAlgebra(VertexAlgebra):
                 res = self.monomial((x,) + mB)
             elif c == 0:
                 if self._parity_letter(x) == 1:
-                    res = (self._fb_nc(x, x) * self.monomial(restB)) / 2
+                    res = self._fb_nc(x, x).no(self.monomial(restB)) / 2
                 else:
                     res = self.monomial((x,) + mB)
             else:

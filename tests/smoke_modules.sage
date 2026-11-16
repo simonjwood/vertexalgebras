@@ -106,7 +106,7 @@ def adjoint_ok(V, weights, ns=range(-3, 4)):
             for n in ns:
                 if x.nproduct(m, n) != M(x.nproduct(y, n)):
                     return False
-            if x * m != M(x * y) or x.no(m) != M(x.no(y)):
+            if x.no(m) != M(x.no(y)):
                 return False
             h = x.degree()
             if x.mode(m, 1 - h) != M(x.mode(y, 1 - h)):

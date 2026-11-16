@@ -1206,7 +1206,7 @@ class _EngineKernel:
         EXAMPLES::
 
             sage: import vertex_algebras as va
-            sage: V = va.Virasoro(QQ, 1/2); L = V.gen('L'); x = (L*L).ope(L)
+            sage: V = va.Virasoro(QQ, 1/2); L = V.gen('L'); x = L.no(L).ope(L)
             sage: E = V._engine()
             sage: E is None or ('ope' in E.cache_sizes() and E.cache_sizes()['ope'] > 0)
             True
@@ -1333,7 +1333,7 @@ class _EngineKernel:
             sage: import vertex_algebras as va
             sage: V = va.Virasoro(QQ, 1/2); L = V.gen('L'); a = ((0, 0),)
             sage: E = V._engine()
-            sage: E is None or E.no_mono(a, a) == dict((L*L)._monomial_coefficients)
+            sage: E is None or E.no_mono(a, a) == dict(L.no(L)._monomial_coefficients)
             True
         """
         return self._el_down(self._E.no_mono(a, b))
@@ -1865,33 +1865,50 @@ def _common(x, y):
     return get_coercion_model().canonical_coercion(x, y)
 
 
+_NO_STAR_MESSAGE = ('* is not the normally ordered product of vertex algebra '
+                    'elements: use a.no(b), or V.normally_ordered(a, b, c) '
+                    '(also V.no(a, b, c)) for :a :b c::')
+
+
 class VertexAlgebraElement(IndexedFreeModuleElement):
     r"""
     An element of a :class:`VertexAlgebra`: a finite linear combination of
-    basis monomials.  ``u * v`` is the normal ordered product.
+    basis monomials.  Normally ordered products are ``u.no(v)`` and
+    :meth:`VertexAlgebra.normally_ordered` (``V.no(a, b, c)`` is
+    ``:a :b c::``); ``u * v`` of two elements is refused, since Python
+    groups ``a * b * c`` as ``(a * b) * c``, against the convention of
+    nesting to the right (scalars still multiply elements).
 
     EXAMPLES::
 
         sage: import vertex_algebras as va
         sage: V = va.Virasoro(QQ, 1/2)
         sage: L = V.gen('L')
-        sage: x = 2*L*L + L.derivative(); x
+        sage: x = 2*L.no(L) + L.derivative(); x
         2*:L L: + dL
-        sage: L * L == L.no(L)
-        True
+        sage: L * L
+        Traceback (most recent call last):
+        ...
+        TypeError: * is not the normally ordered product of vertex algebra elements: use a.no(b), or V.normally_ordered(a, b, c) (also V.no(a, b, c)) for :a :b c::
     """
     def _mul_(self, right):
         """
-        Normal ordered product ``self * right``.
+        Refuse ``self * right`` for two elements: ``a * b * c`` would be
+        ``(a * b) * c = ::a b: c:``, not the standard ``:a :b c::``.  Use
+        :meth:`no` or :meth:`VertexAlgebra.normally_ordered`.
 
         EXAMPLES::
 
             sage: import vertex_algebras as va
             sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L'); L = V.gen('L')
-            sage: L._mul_(L) == L.no(L) == L * L
-            True
+            sage: L._mul_(L)
+            Traceback (most recent call last):
+            ...
+            TypeError: * is not the normally ordered product of vertex algebra elements: use a.no(b), or V.normally_ordered(a, b, c) (also V.no(a, b, c)) for :a :b c::
+            sage: 3 * L * 2, L / 2
+            (6*L, 1/2*L)
         """
-        return self.parent()._nprod_el(self, -1, right)
+        raise TypeError(_NO_STAR_MESSAGE)
 
     def _lmul_(self, c):
         """
@@ -1947,7 +1964,7 @@ class VertexAlgebraElement(IndexedFreeModuleElement):
             sage: L = V.gen('L')
             sage: L.no(L.derivative())
             :dL L: + 1/6*d^3L
-            sage: L.no(L) == L.nproduct(L, -1) == L * L
+            sage: L.no(L) == L.nproduct(L, -1)
             True
         """
         M = _module_of(right)
@@ -2033,7 +2050,7 @@ class VertexAlgebraElement(IndexedFreeModuleElement):
             sage: L = V.gen('L')
             sage: L.derivative(2)
             d^2L
-            sage: (L*L).derivative()
+            sage: L.no(L).derivative()
             2*:dL L: + 1/6*d^3L
             sage: V.one().derivative()
             0
@@ -2065,7 +2082,7 @@ class VertexAlgebraElement(IndexedFreeModuleElement):
             sage: import vertex_algebras as va
             sage: V = va.BosonicGhosts(QQ, horizontal_grading='charge')
             sage: b, g = V.gens()
-            sage: b.horizontal_grade(), g.horizontal_grade(), (b*g*g).horizontal_grade()
+            sage: b.horizontal_grade(), g.horizontal_grade(), b.no(g).no(g).horizontal_grade()
             (-1, 1, 1)
         """
         return self.parent().horizontal_grade(self)
@@ -2080,12 +2097,12 @@ class VertexAlgebraElement(IndexedFreeModuleElement):
             sage: import vertex_algebras as va
             sage: V = va.FermionicGhosts(QQ)
             sage: b, c = V.gens()
-            sage: b.parity(), (b*c).parity(), V.zero().parity()
+            sage: b.parity(), b.no(c).parity(), V.zero().parity()
             (1, 0, 0)
 
         TESTS::
 
-            sage: (b + b*c).parity()
+            sage: (b + b.no(c)).parity()
             Traceback (most recent call last):
             ...
             ValueError: element is not homogeneous
@@ -2128,7 +2145,7 @@ class VertexAlgebraElement(IndexedFreeModuleElement):
 
             sage: import vertex_algebras as va
             sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L'); L = V.gen('L')
-            sage: repr(L.derivative() * L)
+            sage: repr(L.derivative().no(L))
             ':dL L:'
         """
         return self._styled('ascii')
@@ -2213,7 +2230,7 @@ class VertexAlgebra(CombinatorialFreeModule):
         sage: e, f = L.e((1,)), L.e((-1,))
         sage: e.ope(f) == [L.J(0), L.one()]
         True
-        sage: e.no(f) == e * f == e.nproduct(f, -1)
+        sage: e.no(f) == e.nproduct(f, -1)
         True
         sage: e.nproduct(f, 0), e.nproduct(f, 1), e.nproduct(f, 2)
         (J0, 1, 0)
@@ -2599,9 +2616,9 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: V._repr_element(L) is None
             True
             sage: S = V.subalgebra([L]); S.print_options(generators='strong')
-            sage: S._repr_element(S(L * L))
+            sage: S._repr_element(S(L.no(L)))
             ':S0 S0:'
-            sage: S._repr_element(S(L * L), print_style='modes')
+            sage: S._repr_element(S(L.no(L)), print_style='modes')
             'S0(-1)S0(-1)|0>'
             sage: S.print_options(generators='ambient')
         """
@@ -2656,7 +2673,7 @@ class VertexAlgebra(CombinatorialFreeModule):
 
             sage: import vertex_algebras as va
             sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L'); L = V.gen('L')
-            sage: x = L.derivative() * L + 3 * L.derivative(2) + 2; x
+            sage: x = L.derivative().no(L) + 3 * L.derivative(2) + 2; x
             2 + :dL L: + 3*d^2L
             sage: V.print_options()['style']
             'normally_ordered'
@@ -2674,14 +2691,14 @@ class VertexAlgebra(CombinatorialFreeModule):
 
             sage: N1 = va.NeveuSchwarz(QQ, 1, conformal_vector='L')
             sage: N1.print_options(style='conformal_modes')
-            sage: G = N1.gen('G'); G.derivative() * G
+            sage: G = N1.gen('G'); G.derivative().no(G)
             G_{-5/2}G_{-3/2}|0>
             sage: N1.print_options(style='normally_ordered')
 
         A lattice vertex algebra::
 
             sage: A = va.Lattice(QQ, matrix([[2, -1], [-1, 2]]))
-            sage: y = A.J(0).derivative() * (A.J(1) * A.e((1, -1))); y
+            sage: y = A.J(0).derivative().no(A.J(1).no(A.e((1, -1)))); y
             :dJ0 J1 e^(1,-1):
             sage: A.print_options(style='modes'); y
             J0(-2)J1(-1)|(1,-1)>
@@ -2723,7 +2740,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             ....:     for m in U.weight_space(k).basis_keys())
             True
             sage: M = matrix([[1, 0], [0, 3]]); B0 = va.Lattice(QQ, M)
-            sage: T = B0.J(0) * B0.J(0) / 2 + B0.J(1) * B0.J(1) / 6
+            sage: T = B0.J(0).no(B0.J(0)) / 2 + B0.J(1).no(B0.J(1)) / 6
             sage: B = va.Lattice(QQ, M, conformal_vector=T)
             sage: all(rebuild(B, m) == B.monomial(m) for k in (3/2, 3, 7/2)
             ....:     for m in B.weight_space(k).basis_keys())
@@ -2862,10 +2879,52 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: V = va.Virasoro(QQ, 1/2)
             sage: V.one()
             1
-            sage: L = V.gen('L'); V.one() * L == L == L.nproduct(V.one(), -1)
+            sage: L = V.gen('L'); V.one().no(L) == L == L.nproduct(V.one(), -1)
             True
         """
         return self.monomial(self._vacuum_key())
+
+    def normally_ordered(self, *elements):
+        r"""
+        The normally ordered product of ``elements``, nested to the right:
+        ``V.normally_ordered(a, b, c) = :a :b c:: = a_(-1) b_(-1) c``
+        (``V.no`` is the same).  The last argument may be a vector of a
+        ``V``-module (then ``a_(-1) b_(-1) m``); no arguments give the
+        vacuum.
+
+        This replaces ``a * b * c``, which is refused for elements: Python
+        groups it as ``(a * b) * c = ::a b: c:``.
+
+        INPUT:
+
+        - ``elements`` -- elements of this vertex algebra (or of algebras
+          coercing into it), the last one possibly a module vector
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2); L = V.gen('L'); dL = L.derivative()
+            sage: V.normally_ordered(L, dL, L)
+            :dL L L: + 1/6*:d^3L L:
+            sage: V.no(L, dL, L) == L.no(dL.no(L))
+            True
+            sage: L.no(dL).no(L) == V.no(L, dL, L)
+            False
+            sage: V.no(L), V.no()
+            (L, 1)
+            sage: M = V.verma_module(1/16); v = M.highest_weight_vector()
+            sage: V.no(L, L, v)
+            L_{-2} L_{-2} v
+        """
+        if not elements:
+            return self.one()
+        *rest, last = elements
+        res = last if _module_of(last) is not None else self(last)
+        for x in reversed(rest):
+            res = self(x).no(res)
+        return res
+
+    no = normally_ordered
 
     def _rc(self, c):
         """
@@ -3436,12 +3495,12 @@ class VertexAlgebra(CombinatorialFreeModule):
 
             sage: import vertex_algebras as va
             sage: V = va.Virasoro(QQ, 1/2, implementation='python')
-            sage: L = V.gen('L'); x = (L*L).ope(L*L)
+            sage: L = V.gen('L'); x = L.no(L).ope(L.no(L))
             sage: len(V._ope_cache) > 0
             True
             sage: V.clear_caches(); len(V._ope_cache)
             0
-            sage: (L*L).ope(L*L) == x
+            sage: L.no(L).ope(L.no(L)) == x
             True
         """
         self._ope_cache = {}
@@ -3579,7 +3638,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L'); L = V.gen('L'); a = ((0, 0),)
             sage: d = dict(L._monomial_coefficients)
             sage: r = V._engine_call('nprod', d, -1, d)
-            sage: r is None or r == dict((L*L)._monomial_coefficients)
+            sage: r is None or r == dict(L.no(L)._monomial_coefficients)
             True
             sage: P = va.Virasoro(QQ, 1/2, implementation='python')
             sage: P._engine_call('nprod', d, -1, d) is None
@@ -3757,12 +3816,12 @@ class VertexAlgebra(CombinatorialFreeModule):
 
             sage: import vertex_algebras as va
             sage: H = va.FreeBosons(QQ, 1)
-            sage: J = H.gen(0); T = J*J/2
+            sage: J = H.gen(0); T = J.no(J)/2
             sage: S = H.subalgebra([T]); S
             Vertex subalgebra of Universal vertex algebra on generators ['alpha'] over Rational Field strongly generated by ['S0']
             sage: [S.weight_space(n).dimension() for n in range(8)]
             [1, 0, 1, 1, 2, 2, 4, 4]
-            sage: J in S, T*T in S
+            sage: J in S, T.no(T) in S
             (False, True)
         """
         from .vertex_subalgebra import VertexSubalgebra
@@ -3799,10 +3858,10 @@ class VertexAlgebra(CombinatorialFreeModule):
 
             sage: import vertex_algebras as va
             sage: V = va.Virasoro(QQ, -22/5, conformal_vector='L')
-            sage: L = V.gen('L'); v = L*L - 3/10*L.derivative(2)
+            sage: L = V.gen('L'); v = L.no(L) - 3/10*L.derivative(2)
             sage: I = V.ideal([v]); I
             Ideal of Universal vertex algebra on generators ['L'] over Rational Field generated by [:L L: - 3/10*d^2L]
-            sage: v.derivative() in I, L*L in I
+            sage: v.derivative() in I, L.no(L) in I
             (True, False)
             sage: [I.weight_space(n).dimension() for n in range(4, 8)]
             [1, 1, 2, 2]
@@ -3838,11 +3897,11 @@ class VertexAlgebra(CombinatorialFreeModule):
 
             sage: import vertex_algebras as va
             sage: V = va.Virasoro(QQ, -22/5, conformal_vector='L')
-            sage: L = V.gen('L'); v = L*L - 3/10*L.derivative(2)
+            sage: L = V.gen('L'); v = L.no(L) - 3/10*L.derivative(2)
             sage: Q = V.quotient([v])
             sage: [Q.weight_space(n).dimension() for n in range(9)]
             [1, 0, 1, 1, 1, 1, 2, 2, 3]
-            sage: Q(L*L)
+            sage: Q(L.no(L))
             3/10*d^2L
             sage: Q is V.quo(V.ideal([v])) is V / [v]
             True
@@ -3864,7 +3923,7 @@ class VertexAlgebra(CombinatorialFreeModule):
 
             sage: import vertex_algebras as va
             sage: V = va.Virasoro(QQ, -22/5, conformal_vector='L')
-            sage: L = V.gen('L'); v = L*L - 3/10*L.derivative(2)
+            sage: L = V.gen('L'); v = L.no(L) - 3/10*L.derivative(2)
             sage: V.quo([v]) is V.quotient([v])
             True
         """
@@ -3951,7 +4010,7 @@ class VertexAlgebra(CombinatorialFreeModule):
 
             sage: import vertex_algebras as va
             sage: V = va.Virasoro(QQ, -22/5, conformal_vector='L')
-            sage: L = V.gen('L'); v = L*L - 3/10*L.derivative(2)
+            sage: L = V.gen('L'); v = L.no(L) - 3/10*L.derivative(2)
             sage: V / [v] is V.quotient([v]) is V / V.ideal([v])
             True
             sage: V.__truediv__(3) is NotImplemented
@@ -4443,7 +4502,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: U = UniversalVertexAlgebra(QQ, E, {('Lu', 'Lu'): [Lu.derivative(), 2*Lu, 0, 1/4]},
             ....:                            degrees={'Lu': 2})
             sage: x = U.gen(0)
-            sage: U._install_grading({'Lu': 0}); U.horizontal_grade(x * x)
+            sage: U._install_grading({'Lu': 0}); U.horizontal_grade(x.no(x))
             0
             sage: U._install_grading({'Lu': 1}, Zmod(2))
             Traceback (most recent call last):
@@ -4558,7 +4617,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: import vertex_algebras as va
             sage: V = va.BosonicGhosts(QQ, horizontal_grading='charge')
             sage: b, g = V.gens()
-            sage: V.horizontal_grade(g*g), V.horizontal_grade(V.one())
+            sage: V.horizontal_grade(g.no(g)), V.horizontal_grade(V.one())
             (2, 0)
 
         TESTS::
@@ -5163,7 +5222,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: import vertex_algebras as va
             sage: from vertex_algebras.vertex_algebra import VertexAlgebra
             sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L'); L = V.gen('L'); a = ((0, 0),)
-            sage: V._deriv_el_serial(L*L, 1) == (L*L).derivative(), V._deriv_el_serial(L, 0)
+            sage: V._deriv_el_serial(L.no(L), 1) == L.no(L).derivative(), V._deriv_el_serial(L, 0)
             (True, L)
         """
         if n == 0 or A.is_zero():

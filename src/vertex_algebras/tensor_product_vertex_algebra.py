@@ -36,9 +36,9 @@ Two free bosons commute with each other::
     (J # 1, 1 # J)
     sage: J0.ope(J0), J0.ope(J1), J1.ope(J1)
     ([0, 1], [], [0, 1])
-    sage: J0 * J1
+    sage: J0.no(J1)
     J # J
-    sage: (J0 * J1).ope(J1)          # :J1 J2:(z) J2(w) ~ J1(z)/(z-w)^2
+    sage: J0.no(J1).ope(J1)          # :J1 J2:(z) J2(w) ~ J1(z)/(z-w)^2
     [dJ # 1, J # 1]
 
 Central charges add under the tensor product::
@@ -707,7 +707,7 @@ class TensorProductVertexAlgebra(VertexAlgebra):
         a # 1
         sage: T.embed(0, A.gen('a')).derivative(2)
         d^2a # 1
-        sage: x = T.embed(0, A.gen('a')) * T.embed(1, A.gen('a'))
+        sage: x = T.embed(0, A.gen('a')).no(T.embed(1, A.gen('a')))
         sage: x.derivative()
         a # da + da # a
 
@@ -1084,7 +1084,7 @@ class TensorProductVertexAlgebra(VertexAlgebra):
             sage: B, H = va.FermionicGhosts(QQ), va.FreeBosons(QQ, 1)
             sage: P = B.tensor(H)
             sage: b, c = B.gens()
-            sage: P.embed(0, b*c)
+            sage: P.embed(0, b.no(c))
             :b c: # 1
             sage: P.embed(0, b).ope(P.embed(0, c)) == [P.embed(0, x) for x in b.ope(c)]
             True
@@ -1151,7 +1151,7 @@ class TensorProductVertexAlgebra(VertexAlgebra):
             b # alpha
             sage: x.ope(y)[1:]
             [:b c: # 1, 1]
-            sage: x.parity(), x == P.embed(0, b) * P.embed(1, J)
+            sage: x.parity(), x == P.embed(0, b).no(P.embed(1, J))
             (1, True)
 
         TESTS::
@@ -1355,9 +1355,9 @@ class TensorProductVertexAlgebra(VertexAlgebra):
 
             sage: import vertex_algebras as va
             sage: H = va.FreeBosons(QQ, 1, degrees={'alpha': 1}); F0 = va.Lattice(QQ, matrix([[1]]))
-            sage: F = va.Lattice(QQ, matrix([[1]]), conformal_vector=F0.J(0) * F0.J(0) / 2)
+            sage: F = va.Lattice(QQ, matrix([[1]]), conformal_vector=F0.J(0).no(F0.J(0)) / 2)
             sage: W = H.tensor(F, degrees='factors'); J = H.gen(0)
-            sage: x = W.pure_tensor(J.derivative(), F.J(0) * F.e((1,)))
+            sage: x = W.pure_tensor(J.derivative(), F.J(0).no(F.e((1,))))
             sage: W.print_options(style='modes'); x
             alpha(-2)|0> # J0(-1)|(1)>
             sage: W.print_options(style='conformal_modes'); x
@@ -1382,7 +1382,7 @@ class TensorProductVertexAlgebra(VertexAlgebra):
 
             sage: import vertex_algebras as va
             sage: H = va.FreeBosons(QQ, 1)
-            sage: P = H.tensor(H); x = P.gen(0) * P.gen(1)
+            sage: P = H.tensor(H); x = P.gen(0).no(P.gen(1))
             sage: y = x.ope(x); P.clear_caches()
             sage: x.ope(x) == y
             True

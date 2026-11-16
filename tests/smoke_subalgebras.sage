@@ -202,7 +202,7 @@ uA, vA = TA.pure_tensor(E, J), TA.pure_tensor(Fc, J.no(J))
 report('S (x) H products == A (x) H products',
        [d.monomial_coefficients() for d in u.ope(v)]
        == [d.monomial_coefficients() for d in uA.ope(vA)]
-       and (u * v).monomial_coefficients() == (uA * vA).monomial_coefficients())
+       and u.no(v).monomial_coefficients() == uA.no(vA).monomial_coefficients())
 S3 = S.subalgebra([S(Hc)], names=['H'])
 report('nested subalgebra <H> of <E, F>: Heisenberg dims, coerces',
        S3.ambient() is S and [S3.weight_space(n).dimension() for n in range(6)]
