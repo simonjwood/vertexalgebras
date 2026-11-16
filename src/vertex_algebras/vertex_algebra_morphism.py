@@ -27,7 +27,7 @@ is given:
   0`` for ``n >= 1``; ``∂ a_k^± = ±(j_k)_(-1) a_k^±``; ``(a_i^s)_(n) a_k^t =
   0`` for ``n >= -st B_ik``.  Then ``φ(e^q)`` is the ordered product of the
   generator images (with the cocycle), and the conditions make it a
-  homomorphism ([LL2004]_ §6.5; H. Li, arXiv:2008.05982, Prop. 4.3).
+  homomorphism ([LL2004]_ §6.5).
 - **tensor product**: morphisms of the factors whose images super-commute
   (all ``n >= 0`` products of images of generators of different factors
   vanish); ``φ(a ⊗ b) = φ_1(a)_(-1) φ_2(b)``.

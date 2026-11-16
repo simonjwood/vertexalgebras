@@ -26,7 +26,7 @@ universal vertex algebras.  Internally this is the key ``(letters, q)`` with
 ``letters`` a tuple of ``(index, derivative)`` in that order and ``q`` a
 tuple of integers.
 
-Conventions (Kac, *Vertex algebras for beginners*, 5.4-5.5).  The Heisenberg
+Conventions ([Kac1998]_, 5.4-5.5).  The Heisenberg
 modes satisfy ``[h_i(m), h_j(k)] = m B[i,j] δ_{m+k,0}``; the letter
 ``∂^n J_i`` is the state ``n! h_i(-n-1)``.  With ``q(m) = Σ q_i h_i(m)``::
 

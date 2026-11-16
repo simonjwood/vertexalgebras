@@ -22,6 +22,10 @@ most once.  Such a set is finite exactly when (it is empty or) there is a
   number of times: the set is infinite as soon as it is nonempty.  It is
   then enumerated lazily, by increasing number of letters.
 
+The momenta of a weight space of a lattice vertex algebra or of its
+modules are the lattice points in an ellipsoid, enumerated by the method of
+Fincke--Pohst [FP1985]_ (``_ellipsoid_points()``).
+
 Grades are coordinate tuples in a decomposition ``Z/n_1 × ... × Z/n_k`` of
 the grading group (``n_j = 0`` for ``Z``, see ``_grading_groups``); the
 torsion coordinates do not affect finiteness (a weight-0 grade-0 multiset
@@ -499,9 +503,9 @@ def _ellipsoid_points(Q, b, c, bound):
     positive definite rational ``Q`` (finite), as an iterator in
     lexicographic order.
 
-    Fincke–Pohst enumeration around the real minimum ``m*``: with ``Q =
-    U^T D U`` (``U`` unit upper triangular, :func:`_upper_ldl`) and ``x = m -
-    m*``, ``x^T Q x = Σ_i D_i (x_i + Σ_{j>i} U_ij x_j)^2``, so the last
+    Fincke–Pohst enumeration [FP1985]_ around the real minimum ``m*``:
+    with ``Q = U^T D U`` (``U`` unit upper triangular, :func:`_upper_ldl`)
+    and ``x = m - m*``, ``x^T Q x = Σ_i D_i (x_i + Σ_{j>i} U_ij x_j)^2``, so the last
     coordinate is enumerated first and each further one in an interval
     given by the coordinates already chosen.  Exact over ``QQ`` (floats
     only guess the intervals, with a margin; every candidate is tested

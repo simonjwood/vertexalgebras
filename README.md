@@ -5,17 +5,18 @@ Vertex algebras and vertex superalgebras for [SageMath](https://www.sagemath.org
 **Status:** preview release (version 0.1.0a1). The interface may still
 change.
 
-Authors: Christopher Raymond and Simon Wood. Copyright (C) Cardiff University 2026.
-Licence: GNU General Public License, version 2 or (at your option) any later
-version (GPL-2.0-or-later, see
-[LICENSE](https://github.com/simonjwood/vertexalgebras/blob/main/LICENSE)).
-
 ## What it does
 
 - **Universal vertex algebras** from strong generators and their OPEs
   (`UniversalVertexAlgebra`), with coefficients written as normally
   ordered expressions (`NormallyOrderedExpressions`); Jacobi identity
   checks; conformal vectors, conformal weights and gradings.
+- **A catalog** with the names of Sage's Lie conformal algebras:
+  `vertex_algebras.Virasoro(R, c)`, `NeveuSchwarz`, `N2`, `Affine`,
+  `BosonicGhosts`, `FermionicGhosts`, `FreeBosons`, `FreeFermions`, `Weyl`,
+  `Abelian`, and `Lattice`, `W3`, `W`; both directions to Sage's Lie
+  conformal algebras (`V.lie_conformal_algebra()`,
+  `universal_enveloping_vertex_algebra`).
 - **Basic classical Lie superalgebras** from a Cartan matrix with odd simple
   roots or by name (sl(m|n), psl(m|m), osp(m|n), D(2,1;a), F(4), G(3)), with
   the invariant form normalised as in Kac–Wakimoto (`LieSuperalgebra`).
@@ -30,7 +31,11 @@ version (GPL-2.0-or-later, see
   (`V.tensor(W)`).
 - **Constructions:** subalgebras with their strong generators
   (`V.subalgebra`), ideals and quotients (`V.ideal`, `V.quotient`, `V / I`),
-  commutants and cosets (`V.commutant`), weight spaces and characters.
+  presentations by generators and relations (`S.presentation()`),
+  commutants and cosets (`V.commutant`); weight spaces, characters
+  (`V.character`) and singular vectors.
+- **Morphisms** given by images of generators (`V.hom(images, W)`), with
+  composition, kernels and images.
 - **W-algebras** by quantum Hamiltonian reduction (Kac–Roan–Wakimoto):
   `WAlgebra(R, g, f, k)` for a Lie superalgebra, a nilpotent (`'minimal'`,
   `'principal'`, a Jordan type for the classical types, e.g. `[3, 1]` for
@@ -39,15 +44,26 @@ version (GPL-2.0-or-later, see
   `conformal_vector='reduction'`); the reduction of highest weight
   modules (`M.quantum_hamiltonian_reduction(f)`: Verma modules and their
   simple quotients, by the theorems of Kac–Wakimoto and Arakawa).
-- **A catalog** with the names of Sage's Lie conformal algebras:
-  `vertex_algebras.Virasoro(R, c)`, `NeveuSchwarz`, `N2`, `Affine`,
-  `BosonicGhosts`, `FermionicGhosts`, `FreeBosons`, `FreeFermions`, `Weyl`,
-  `Abelian`, and `Lattice`, `W3`, `W`.
-- **OPE bootstrap:** OPE ansätze with unknown coefficients, solved through
-  the Jacobi identities (`OPEBootstrap`).
 - **Zhu algebras** of universal vertex algebras and of their quotients
   (`V.zhu_algebra()`, `Q.zhu_algebra_up_to(W)`), also H-twisted (Ramond
-  sectors: `V.zhu_algebra(twist='ramond')`).
+  sectors: `V.zhu_algebra(twist='ramond')`), and the **higher Zhu
+  algebras** of Dong–Li–Mason (`V.zhu_algebra(level=n)`); modules over
+  them (`A.module(...)`, `A.verma_module(λ)`).
+- **Modules:** the adjoint module, the simple modules of lattice vertex
+  algebras (`V.simple_module(λ)`, `V.simple_modules()`), modules induced
+  from modules over the Zhu algebra (`V.induced_module(U)`,
+  `Q.induced_module_up_to(U, ...)` for quotients); submodules, the
+  maximal submodule, quotients and simple quotients
+  (`M.simple_quotient()`), direct sums, singular vectors
+  (`M.find_singular`); twists, pullbacks and spectral flow; module
+  morphisms (`M.hom(images, N)`, `Hom(M, N).basis()`).
+- **Fusion products** by the Nahm–Gaberdiel–Kausch algorithm
+  (`M.fusion_product(N)`), as quotients up to a depth.
+- **Extensions:** projective covers, radical and socle series (Loewy
+  layers) and Ext^1 up to a depth (`L.projective_cover`,
+  `M.radical_series_up_to`, `M.ext1_up_to(N, ...)`).
+- **OPE bootstrap:** OPE ansätze with unknown coefficients, solved through
+  the Jacobi identities (`OPEBootstrap`).
 
 Products are computed by C++ engines with [FLINT](https://flintlib.org)
 coefficients over the rationals, finite fields, number fields, polynomial
@@ -71,38 +87,51 @@ Subsystem for Linux (WSL), as Sage itself recommends.
 The package is installed with pip into the Python of an existing Sage
 installation. Sage is not a declared dependency, because no single pip
 package name covers all the ways Sage is installed; importing
-`vertex_algebras` checks the Sage version.
+`vertex_algebras` checks the Sage version. To install from this GitHub
+repository instead, for development, see "From the repository (for
+development)" below.
 
-### Sage from conda (recommended)
+The recommended way to get Sage, on Linux and on macOS, is a conda
+environment: it already has the compilers, FLINT and GMP.
 
-A conda environment with Sage already has the compilers, FLINT and GMP. If
-you do not have one yet, install
-[Miniforge](https://github.com/conda-forge/miniforge) and create it with
-`conda create -n sage sage`. Then:
+### Linux
 
-```
-conda activate sage
-pip install sage-vertex-algebras
-```
+1. Install [Miniforge](https://github.com/conda-forge/miniforge) and
+   create the environment with `conda create -n sage sage`, as described
+   in Sage's guide
+   [Install from conda-forge](https://doc.sagemath.org/html/en/installation/conda.html).
+2. Install the package:
 
-pip builds the C++ engines on your machine (about a minute). On macOS, see
-the next section first.
+   ```
+   conda activate sage
+   pip install sage-vertex-algebras
+   ```
+
+   pip builds the C++ engines on your machine (about a minute).
 
 ### macOS
 
-The same steps work on Apple Silicon and on Intel Macs, with a few
-additions:
+For Apple Silicon and Intel Macs:
 
 1. Install the Xcode Command Line Tools once: `xcode-select --install`.
    Conda's compilers use Apple's SDK from them.
-2. Install the Miniforge build for your processor (`arm64` for Apple
-   Silicon, `x86_64` for Intel), then create the environment with
-   `conda create -n sage sage`. Sage 10.10 or later is faster here than
-   10.9 for computations over number fields; the package works with
-   both.
-3. Install as above. If the build reports that it cannot find a C++
-   compiler, run `conda install cxx-compiler` in the environment and
-   install again.
+2. Install the [Miniforge](https://github.com/conda-forge/miniforge)
+   build for your processor (`arm64` for Apple Silicon, `x86_64` for
+   Intel), then create the environment with `conda create -n sage sage`,
+   as described in Sage's guide
+   [Install from conda-forge](https://doc.sagemath.org/html/en/installation/conda.html).
+   Sage 10.10 or later is faster here than 10.9 for computations over
+   number fields; the package works with both.
+3. Install the package:
+
+   ```
+   conda activate sage
+   pip install sage-vertex-algebras
+   ```
+
+   pip builds the C++ engines on your machine (about a minute). If the
+   build reports that it cannot find a C++ compiler, run
+   `conda install cxx-compiler` in the environment and install again.
 4. Check that FLINT and GMP come from the conda environment, not from
    Homebrew or elsewhere:
 
@@ -112,9 +141,6 @@ additions:
 
    The `libflint` and `libgmp` lines should point into the environment
    (`@rpath/...` or a path under `miniforge3/envs/sage`).
-
-When reporting a problem, include the output of `sage --version`,
-`uname -m`, and the last 40 lines of the failing build or test run.
 
 ### Other Sage installations
 
@@ -135,6 +161,9 @@ python -m sage.doctest --long "$(python -c 'import vertex_algebras, os; print(os
 
 The second command runs all the examples and tests of the documentation
 (a minute or two; add `-p 4` to use four processes).
+
+When reporting a problem, include the output of `sage --version`,
+`uname -sm`, and the last 40 lines of the failing build or test run.
 
 ### From the repository (for development)
 
@@ -204,10 +233,175 @@ whole session; results do not depend on it.
 ## Acknowledgements
 
 The library started as a port of K. Thielemans' Mathematica package
-OPEdefs (K. Thielemans, *A Mathematica package for computing operator
-product expansions*, Int. J. Mod. Phys. C 2 (1991) 787); K. Thielemans
-kindly agreed to its publication under an open-source licence. Universal
-vertex algebras and their Zhu algebras follow A. De Sole and V. G. Kac, *Freely
-generated vertex algebras and non-linear Lie conformal algebras*
-(arXiv:math-ph/0312042) and *Finite vs affine W-algebras*
-(arXiv:math-ph/0511055).
+OPEdefs [Thi1991]; K. Thielemans kindly agreed to its publication under an
+open-source licence.
+
+CR and SW thank Sven Möller and David Ridout for helpful discussions.
+
+CR’s research is supported by the Deutsche Forschungsgemeinschaft through
+the Collaborative Research Centre 1624: Higher Structures, Moduli Spaces
+and Integrability, project number 506632645.
+
+### Software
+
+The library is built on [SageMath](https://www.sagemath.org). Its C++
+engines compute with [FLINT](https://flintlib.org) and
+[GMP](https://gmplib.org); Gröbner bases in Zhu algebras come from
+[Singular](https://www.singular.uni-kl.de) (Plural and Letterplace); lattice
+vectors are enumerated with [PARI](https://pari.math.u-bordeaux.fr).
+
+### Where the methods come from
+
+- **Universal vertex algebras:** the OPE recursion of OPEdefs [Thi1991];
+  freely generated vertex algebras, their PBW bases and Jacobi identities
+  [DSK2005].
+- **Lie superalgebras:** the contragredient construction and the
+  classification [Kac1977]; root systems [FSS1996]; invariant forms
+  normalised as in the tables of [KW2004]; sl₂-triples by Morozov's lemma
+  [CM1993, §3.3].
+- **Affine vertex algebras and ghost systems:** Sugawara and ghost
+  conformal vectors [KRW2003].
+- **Lattice vertex algebras:** construction and cocycles [Kac1998,
+  5.4–5.5]; their simple modules [Don1993], [DLM1997]; weight spaces by
+  Fincke–Pohst enumeration [FP1985].
+- **Ideals and quotients:** normal forms [KK2023]; overlap checks by the
+  diamond lemma [Ber1978].
+- **Morphisms:** the universal property of lattice vertex algebras
+  [LL2004, §6.5].
+- **W-algebras:** the quantum Hamiltonian reduction [KRW2003], [KW2004],
+  [DSK2006]; the reduction of highest weight modules [Ara2005], [Ara2007].
+- **Zhu algebras:** [Zhu1996], [FZ1992]; half-integer weights [KW1994];
+  H-twisted Zhu algebras [DSK2006]; higher Zhu algebras [DLM1998] in the
+  model of [He2017], with the caveat of [BVY2019].
+- **Modules:** induced modules [Zhu1996], [DLM1998]; module criteria
+  [Li1996]; homomorphisms from the vacuum module [Li1994]; spectral flow
+  [Li1997].
+- **Fusion products:** the Nahm–Gaberdiel–Kausch algorithm [Nah1994],
+  [GK1996], with the coproduct formulas of [KR2019].
+- **Extensions:** projective covers from [DLM1998], [He2017]; Ext¹ from a
+  presentation [Wei1994, §3.4]; idempotents and Cartan invariants of
+  finite-dimensional algebras [CR1962, §54], [Ben1991, §1.7].
+- **OPE bootstrap:** Jacobi identities of OPEs [Thi1991], [KW1991],
+  [BFKNRV1991]; the W₃ algebra [Zam1985].
+
+### References
+
+- [Ara2005] T. Arakawa, *Representation theory of superconformal algebras
+  and the Kac–Roan–Wakimoto conjecture*, Duke Math. J. 130 (2005), 435–478,
+  [arXiv:math-ph/0405015](https://arxiv.org/abs/math-ph/0405015).
+- [Ara2007] T. Arakawa, *Representation theory of W-algebras*, Invent.
+  Math. 169 (2007), 219–320, [arXiv:math/0506056](https://arxiv.org/abs/math/0506056).
+- [Ben1991] D. J. Benson, *Representations and cohomology I*, Cambridge
+  Stud. Adv. Math. 30, Cambridge University Press (1991),
+  [doi:10.1017/CBO9780511623615](https://doi.org/10.1017/CBO9780511623615).
+- [Ber1978] G. M. Bergman, *The diamond lemma for ring theory*, Adv. Math.
+  29 (1978), 178–218,
+  [doi:10.1016/0001-8708(78)90010-5](https://doi.org/10.1016/0001-8708(78)90010-5).
+- [BFKNRV1991] R. Blumenhagen, M. Flohr, A. Kliem, W. Nahm, A. Recknagel,
+  R. Varnhagen, *W-algebras with two and three generators*, Nuclear Phys. B
+  361 (1991), 255–289,
+  [doi:10.1016/0550-3213(91)90624-7](https://doi.org/10.1016/0550-3213(91)90624-7).
+- [BVY2019] K. Barron, N. Vander Werf, J. Yang, *Higher level Zhu algebras
+  and modules for vertex operator algebras*, J. Pure Appl. Algebra 223
+  (2019), 3295–3317, [arXiv:1710.04767](https://arxiv.org/abs/1710.04767).
+- [CM1993] D. H. Collingwood, W. M. McGovern, *Nilpotent orbits in
+  semisimple Lie algebras*, Van Nostrand Reinhold (1993); CRC Press
+  (2017), [doi:10.1201/9780203745809](https://doi.org/10.1201/9780203745809).
+- [CR1962] C. W. Curtis, I. Reiner, *Representation theory of finite
+  groups and associative algebras*, Interscience (1962); AMS Chelsea
+  (2006), [doi:10.1090/chel/356](https://doi.org/10.1090/chel/356).
+- [Don1993] C. Dong, *Vertex algebras associated with even lattices*, J.
+  Algebra 161 (1993), 245–265,
+  [doi:10.1006/jabr.1993.1217](https://doi.org/10.1006/jabr.1993.1217).
+- [DLM1997] C. Dong, H. Li, G. Mason, *Regularity of rational vertex
+  operator algebras*, Adv. Math. 132 (1997), 148–166,
+  [arXiv:q-alg/9508018](https://arxiv.org/abs/q-alg/9508018).
+- [DLM1998] C. Dong, H. Li, G. Mason, *Vertex operator algebras and
+  associative algebras*, J. Algebra 206 (1998), 67–96,
+  [arXiv:q-alg/9612010](https://arxiv.org/abs/q-alg/9612010).
+- [DSK2005] A. De Sole, V. G. Kac, *Freely generated vertex algebras and
+  non-linear Lie conformal algebras*, Comm. Math. Phys. 254 (2005),
+  659–694, [arXiv:math-ph/0312042](https://arxiv.org/abs/math-ph/0312042).
+- [DSK2006] A. De Sole, V. G. Kac, *Finite vs affine W-algebras*, Jpn. J.
+  Math. 1 (2006), 137–261,
+  [arXiv:math-ph/0511055](https://arxiv.org/abs/math-ph/0511055).
+- [FP1985] U. Fincke, M. Pohst, *Improved methods for calculating vectors
+  of short length in a lattice, including a complexity analysis*, Math.
+  Comp. 44 (1985), 463–471,
+  [doi:10.1090/S0025-5718-1985-0777278-8](https://doi.org/10.1090/S0025-5718-1985-0777278-8).
+- [FSS1996] L. Frappat, A. Sciarrino, P. Sorba, *Dictionary on Lie
+  superalgebras* (1996), [arXiv:hep-th/9607161](https://arxiv.org/abs/hep-th/9607161).
+- [FZ1992] I. B. Frenkel, Y. Zhu, *Vertex operator algebras associated to
+  representations of affine and Virasoro algebras*, Duke Math. J. 66
+  (1992), 123–168,
+  [doi:10.1215/S0012-7094-92-06604-X](https://doi.org/10.1215/S0012-7094-92-06604-X).
+- [GK1996] M. R. Gaberdiel, H. G. Kausch, *Indecomposable fusion
+  products*, Nuclear Phys. B 477 (1996), 293–318,
+  [arXiv:hep-th/9604026](https://arxiv.org/abs/hep-th/9604026).
+- [He2017] X. He, *Higher level Zhu algebras are subquotients of universal
+  enveloping algebras*, J. Algebra 491 (2017), 265–279,
+  [arXiv:1712.05671](https://arxiv.org/abs/1712.05671).
+- [Kac1977] V. G. Kac, *Lie superalgebras*, Adv. Math. 26 (1977), 8–96,
+  [doi:10.1016/0001-8708(77)90017-2](https://doi.org/10.1016/0001-8708(77)90017-2).
+- [Kac1998] V. G. Kac, *Vertex algebras for beginners*, 2nd ed., Univ.
+  Lecture Ser. 10, AMS (1998),
+  [doi:10.1090/ulect/010](https://doi.org/10.1090/ulect/010).
+- [KK2023] R. A. Kozlov, P. S. Kolesnikov, *The Gröbner–Shirshov bases
+  method for vertex algebras*, J. Math. Sci. 296 (2026), 217–230,
+  [arXiv:2312.01670](https://arxiv.org/abs/2312.01670).
+- [KR2019] S. Kanade, D. Ridout, *NGK and HLZ: fusion for physicists and
+  mathematicians*, in: Affine, vertex and W-algebras, Springer INdAM Ser.
+  37 (2019), 135–181, [arXiv:1812.10713](https://arxiv.org/abs/1812.10713).
+- [KRW2003] V. G. Kac, S.-S. Roan, M. Wakimoto, *Quantum reduction for
+  affine superalgebras*, Comm. Math. Phys. 241 (2003), 307–342,
+  [arXiv:math-ph/0302015](https://arxiv.org/abs/math-ph/0302015).
+- [KW1991] H. G. Kausch, G. M. T. Watts, *A study of W-algebras using
+  Jacobi identities*, Nuclear Phys. B 354 (1991), 740–768,
+  [doi:10.1016/0550-3213(91)90375-8](https://doi.org/10.1016/0550-3213(91)90375-8).
+- [KW1994] V. G. Kac, W. Wang, *Vertex operator superalgebras and their
+  representations*, Contemp. Math. 175 (1994), 161–191,
+  [arXiv:hep-th/9312065](https://arxiv.org/abs/hep-th/9312065).
+- [KW2004] V. G. Kac, M. Wakimoto, *Quantum reduction and representation
+  theory of superconformal algebras*, Adv. Math. 185 (2004), 400–458;
+  corrigendum, Adv. Math. 193 (2005), 453–455,
+  [arXiv:math-ph/0304011](https://arxiv.org/abs/math-ph/0304011).
+- [Li1994] H. Li, *Symmetric invariant bilinear forms on vertex operator
+  algebras*, J. Pure Appl. Algebra 96 (1994), 279–297,
+  [doi:10.1016/0022-4049(94)90104-X](https://doi.org/10.1016/0022-4049(94)90104-X).
+- [Li1996] H. Li, *Local systems of vertex operators, vertex superalgebras
+  and modules*, J. Pure Appl. Algebra 109 (1996), 143–195,
+  [arXiv:hep-th/9406185](https://arxiv.org/abs/hep-th/9406185).
+- [Li1997] H. Li, *The physics superselection principle in vertex operator
+  algebra theory*, J. Algebra 196 (1997), 436–457,
+  [doi:10.1006/jabr.1997.7126](https://doi.org/10.1006/jabr.1997.7126).
+- [LL2004] J. Lepowsky, H. Li, *Introduction to vertex operator algebras
+  and their representations*, Progr. Math. 227, Birkhäuser (2004),
+  [doi:10.1007/978-0-8176-8186-9](https://doi.org/10.1007/978-0-8176-8186-9).
+- [Nah1994] W. Nahm, *Quasi-rational fusion products*, Internat. J.
+  Modern Phys. B 8 (1994), 3693–3702,
+  [arXiv:hep-th/9402039](https://arxiv.org/abs/hep-th/9402039).
+- [Thi1991] K. Thielemans, *A Mathematica package for computing operator
+  product expansions*, Internat. J. Modern Phys. C 2 (1991), 787–798,
+  [doi:10.1142/S0129183191001001](https://doi.org/10.1142/S0129183191001001).
+- [Wei1994] C. A. Weibel, *An introduction to homological algebra*,
+  Cambridge Stud. Adv. Math. 38, Cambridge University Press (1994),
+  [doi:10.1017/CBO9781139644136](https://doi.org/10.1017/CBO9781139644136).
+- [Zam1985] A. B. Zamolodchikov, *Infinite additional symmetries in
+  two-dimensional conformal quantum field theory*, Theoret. and Math. Phys.
+  65 (1985), 1205–1213,
+  [doi:10.1007/BF01036128](https://doi.org/10.1007/BF01036128).
+- [Zhu1996] Y. Zhu, *Modular invariance of characters of vertex operator
+  algebras*, J. Amer. Math. Soc. 9 (1996), 237–302,
+  [doi:10.1090/S0894-0347-96-00182-8](https://doi.org/10.1090/S0894-0347-96-00182-8).
+
+## Authors and licence
+
+Christopher Raymond and Simon Wood. Copyright (C) Cardiff University 2026.
+
+Licensed under the GNU General Public License, version 2 or later
+(GPL-2.0-or-later); see
+[LICENSE](https://github.com/simonjwood/vertexalgebras/blob/main/LICENSE).
+
+To cite the package, see
+[CITATION.cff](https://github.com/simonjwood/vertexalgebras/blob/main/CITATION.cff)
+(GitHub's "Cite this repository").

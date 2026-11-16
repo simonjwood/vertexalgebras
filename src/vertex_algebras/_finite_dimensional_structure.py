@@ -15,7 +15,7 @@ coordinates, ``lmats[i]`` is the matrix of ``x -> b_i x`` (column ``j`` =
 the coordinates of ``b_i b_j``).
 
 Math (Curtis-Reiner, Section 54; Benson, *Representations and cohomology*
-I, 1.6-1.7): in characteristic 0 the radical is the kernel of the trace
+I, 1.7): in characteristic 0 the radical is the kernel of the trace
 form ``(a, b) -> tr(L_{ab})`` (Dickson).  An idempotent ``e`` is primitive
 iff ``eAe`` is local; when ``A`` is split over the base field (every simple
 module absolutely simple) this means ``dim e(A/J)e = 1``, which is the test

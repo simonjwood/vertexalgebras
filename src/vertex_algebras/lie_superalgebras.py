@@ -2249,9 +2249,9 @@ class LieSuperalgebra(_ArtFromRepr, CombinatorialFreeModule):
         subalgebra if there is such a triple (then the Dynkin grading is
         diagonal on the basis), else in the even part.
 
-        Morozov's lemma: for ``h = [z, f]`` with ``[h, f] = -2f`` there is an
-        ``e`` with ``[e, f] = h``, ``[h, e] = 2e``.  Both steps are linear
-        systems.
+        Morozov's lemma ([CM1993]_, §3.3): for ``h = [z, f]`` with
+        ``[h, f] = -2f`` there is an ``e`` with ``[e, f] = h``,
+        ``[h, e] = 2e``.  Both steps are linear systems.
 
         INPUT:
 

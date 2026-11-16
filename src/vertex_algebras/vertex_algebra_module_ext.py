@@ -19,7 +19,8 @@ algebra ``A_n(V)``, and ``Hom_V(\bar M_n(U), N) = Hom_{A_n}(U, N(n))``
   onto, a section ``P -> E(n)`` of ``A_n``-modules, and by the adjunction a
   section ``\bar M_n(P) -> E``;
 - for ``π: P_0 -> M`` onto, ``P_0`` projective, ``K = ker π``: ``0 ->
-  Hom(M, N) -> Hom(P_0, N) -> Hom(K, N) -> Ext^1(M, N) -> 0``, so
+  Hom(M, N) -> Hom(P_0, N) -> Hom(K, N) -> Ext^1(M, N) -> 0`` ([Wei1994]_,
+  §3.4), so
   ``Ext^1(M, N) = Hom(K, N) / {f|_K}``.
 
 ``L.projective_cover(max_weight, max_depth)`` (:func:`projective_cover`)

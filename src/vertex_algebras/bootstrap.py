@@ -1481,7 +1481,8 @@ class BootstrapSolution(SageObject):
 
     The ``W(2, 4)`` algebra: the self-coupling of the weight-4 primary
     ``W`` (normalised to ``W_(7) W = c/4``) is the square root of a
-    rational function of ``c`` (Kausch–Watts; Blumenhagen et al.)::
+    rational function of ``c`` (Kausch–Watts [KW1991]_; Blumenhagen et al.
+    [BFKNRV1991]_)::
 
         sage: from vertex_algebras.universal_vertex_algebra import UniversalVertexAlgebra
         sage: from vertex_algebras.bootstrap import OPEBootstrap

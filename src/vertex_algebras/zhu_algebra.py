@@ -5,7 +5,7 @@ Zhu algebras of vertex algebras.
 
 Zhu's associative algebra ``A(V)`` of a vertex algebra ``V`` graded by
 integer and half-integer conformal weights (untwisted: Zhu [Zhu1996]_,
-Kac--Wang; in the notation of De Sole--Kac [DSK2006]_, Section 2.2, it is
+Kac--Wang [KW1994]_; in the notation of De Sole--Kac [DSK2006]_, Section 2.2, it is
 ``Zhu_Γ V`` with ``Γ = Z``)::
 
     A(V) = V_Z / J,   a * b = Σ_{j>=0} C(Δ_a, j) a_(j-1) b,

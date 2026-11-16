@@ -3329,7 +3329,9 @@ class HigherInducedModule(InducedModule):
     word), the commutator defects and, for a quotient ``Q`` of ``V``, the
     relations of ``Q``, is ``\bar M_n(U)``: see
     ``Q.induced_module_up_to(U, max_weight, max_depth)``, which computes it
-    in the degrees ``<= max_depth``.  Degrees: ``U`` in degree ``n``, the
+    in the degrees ``<= max_depth``; it checks that no relation lies in the
+    span of ``U``, which need not be the degree-``n`` part of ``\bar M_n(U)``
+    (Barron--Vander Werf--Yang [BVY2019]_).  Degrees: ``U`` in degree ``n``, the
     weight of degree ``d`` is ``h - n + d`` (``h`` the eigenvalue of
     ``[T]`` on ``U``, if it has only one).
 
@@ -3763,7 +3765,7 @@ class HigherInducedModule(InducedModule):
         r"""
         ``\bar M_n(U)`` must have ``U`` in degree ``n``: no relation
         computed may lie in the span of ``U`` (else ``ValueError``; cf.
-        Barron--Vander Werf--Yang).
+        Barron--Vander Werf--Yang [BVY2019]_).
 
         TESTS::
 

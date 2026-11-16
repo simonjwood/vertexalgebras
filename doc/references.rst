@@ -17,6 +17,19 @@ The docstrings of the library cite the works below as ``[KEY]_``.
 .. [Ber1978] \G. M. Bergman, *The diamond lemma for ring theory*,
    Adv. Math. 29 (1978), 178--218, :doi:`10.1016/0001-8708(78)90010-5`.
 
+.. [BFKNRV1991] \R. Blumenhagen, M. Flohr, A. Kliem, W. Nahm, A. Recknagel,
+   R. Varnhagen, *W-algebras with two and three generators*, Nuclear
+   Phys. B 361 (1991), 255--289, :doi:`10.1016/0550-3213(91)90624-7`.
+
+.. [BVY2019] \K. Barron, N. Vander Werf, J. Yang, *Higher level Zhu
+   algebras and modules for vertex operator algebras*, J. Pure Appl.
+   Algebra 223 (2019), 3295--3317, :arxiv:`1710.04767`,
+   :doi:`10.1016/j.jpaa.2018.11.002`.
+
+.. [CM1993] \D. H. Collingwood, W. M. McGovern, *Nilpotent orbits in
+   semisimple Lie algebras*, Van Nostrand Reinhold, New York (1993);
+   reprinted by CRC Press (2017), :doi:`10.1201/9780203745809`.
+
 .. [DLM1997] \C. Dong, H. Li, G. Mason, *Regularity of rational vertex
    operator algebras*, Adv. Math. 132 (1997), 148--166,
    :arxiv:`q-alg/9508018`, :doi:`10.1006/aima.1997.1681`.
@@ -40,6 +53,11 @@ The docstrings of the library cite the works below as ``[KEY]_``.
    general augmented minimal models*, J. Phys. A 39 (2006), 15245--15286,
    :arxiv:`hep-th/0604097`, :doi:`10.1088/0305-4470/39/49/012`.
 
+.. [FP1985] \U. Fincke, M. Pohst, *Improved methods for calculating
+   vectors of short length in a lattice, including a complexity
+   analysis*, Math. Comp. 44 (1985), 463--471,
+   :doi:`10.1090/S0025-5718-1985-0777278-8`.
+
 .. [FSS1996] \L. Frappat, A. Sciarrino, P. Sorba, *Dictionary on Lie
    superalgebras*, preprint (1996), :arxiv:`hep-th/9607161`.
 
@@ -58,6 +76,10 @@ The docstrings of the library cite the works below as ``[KEY]_``.
 .. [Kac1977] \V. G. Kac, *Lie superalgebras*, Adv. Math. 26 (1977), 8--96,
    :doi:`10.1016/0001-8708(77)90017-2`.
 
+.. [Kac1998] \V. G. Kac, *Vertex algebras for beginners*, 2nd ed.,
+   University Lecture Series 10, Amer. Math. Soc., Providence (1998),
+   :doi:`10.1090/ulect/010`.
+
 .. [KK2023] \R. A. Kozlov, P. S. Kolesnikov, *The Gröbner--Shirshov bases
    method for vertex algebras*, J. Math. Sci. 296 (2026), 217--230,
    translated from Fundam. Prikl. Mat. 25 (2024), :arxiv:`2312.01670`,
@@ -71,6 +93,16 @@ The docstrings of the library cite the works below as ``[KEY]_``.
 .. [KRW2003] \V. G. Kac, S.-S. Roan, M. Wakimoto, *Quantum reduction for
    affine superalgebras*, Comm. Math. Phys. 241 (2003), 307--342,
    :arxiv:`math-ph/0302015`, :doi:`10.1007/s00220-003-0926-1`.
+
+.. [KW1991] \H. G. Kausch, G. M. T. Watts, *A study of W-algebras using
+   Jacobi identities*, Nuclear Phys. B 354 (1991), 740--768,
+   :doi:`10.1016/0550-3213(91)90375-8`.
+
+.. [KW1994] \V. G. Kac, W. Wang, *Vertex operator superalgebras and their
+   representations*, in: Mathematical aspects of conformal and
+   topological field theories and quantum groups, Contemp. Math. 175,
+   Amer. Math. Soc., Providence (1994), 161--191, :arxiv:`hep-th/9312065`,
+   :doi:`10.1090/conm/175/01843`.
 
 .. [KW2004] \V. G. Kac, M. Wakimoto, *Quantum reduction and representation
    theory of superconformal algebras*, Adv. Math. 185 (2004), 400--458,
@@ -109,6 +141,10 @@ The docstrings of the library cite the works below as ``[KEY]_``.
    `\mathcal{W}_3` *algebra with* `c = -2`, Comm. Math. Phys. 195 (1998),
    113--128, :arxiv:`q-alg/9708016`, :doi:`10.1007/s002200050382`.
 
+.. [Wei1994] \C. A. Weibel, *An introduction to homological algebra*,
+   Cambridge Stud. Adv. Math. 38, Cambridge University Press (1994),
+   :doi:`10.1017/CBO9781139644136`.
+
 .. [Zam1985] \A. B. Zamolodchikov, *Infinite additional symmetries in
    two-dimensional conformal quantum field theory*, Theoret. and Math.
    Phys. 65 (1985), 1205--1213, :doi:`10.1007/BF01036128`.
@@ -126,19 +162,11 @@ The docstrings of the library cite the works below as ``[KEY]_``.
       Comm. Math. Phys. 336 (2015), 1359--1433, :arxiv:`1312.5344`,
       :doi:`10.1007/s00220-014-2272-x`.
 
-   .. [BVY2019] \K. Barron, N. Vander Werf, J. Yang, *Higher level Zhu algebras
-      and modules for vertex operator algebras*, J. Pure Appl. Algebra 223
-      (2019), 3295--3317, :arxiv:`1710.04767`,
-      :doi:`10.1016/j.jpaa.2018.11.002`.
 
    .. [DLWY2010] \C. Dong, C. H. Lam, Q. Wang, H. Yamada, *The structure of
       parafermion vertex operator algebras*, J. Algebra 323 (2010), 371--381,
       :arxiv:`0904.2758`, :doi:`10.1016/j.jalgebra.2009.08.003`.
 
-   .. [FP1985] \U. Fincke, M. Pohst, *Improved methods for calculating vectors
-      of short length in a lattice, including a complexity analysis*,
-      Math. Comp. 44 (1985), 463--471,
-      :doi:`10.1090/S0025-5718-1985-0777278-8`.
 
    .. [GRW2009] \M. R. Gaberdiel, I. Runkel, S. Wood, *Fusion rules and
       boundary conditions in the c = 0 triplet model*, J. Phys. A 42 (2009),
