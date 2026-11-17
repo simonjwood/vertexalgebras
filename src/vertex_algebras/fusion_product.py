@@ -114,6 +114,7 @@ from sage.arith.functions import lcm
 from sage.functions.other import binomial, ceil, floor
 from sage.matrix.constructor import matrix
 from sage.rings.rational_field import QQ
+from sage.rings.integer_ring import ZZ
 from sage.structure.sage_object import SageObject
 
 from ._keyed_spans import KeyedSpan
@@ -155,6 +156,26 @@ def _tensor_into(res, dA, dB, c):
                 res[key] = r
             else:
                 res.pop(key, None)
+
+
+_BINOMIALS = {}
+
+
+def _binomial(n, k):
+    """
+    ``binomial(n, k)`` (Sage's, any integer ``n``), cached.
+
+    TESTS::
+
+        sage: from vertex_algebras.fusion_product import _binomial
+        sage: _binomial(-3, 2), _binomial(5, 2), _binomial(2, 5)
+        (6, 10, 0)
+    """
+    key = (n, k)
+    c = _BINOMIALS.get(key)
+    if c is None:
+        c = _BINOMIALS[key] = binomial(n, k)
+    return c
 
 
 class FusionProduct(SageObject):
@@ -440,6 +461,14 @@ class FusionQuotientUpTo(SageObject):
         self._depths = [i * self._step for i in range(floor(K / self._step) + 1)]
         self._A = _Side(M, self._depths)
         self._B = _Side(N, self._depths)
+        # the coproduct's window tests in integers: depths and degrees are
+        # multiples of 1/D (the Sage rationals cost most of its time)
+        self._D = int(D)
+        self._Ks = int(floor(K * D))
+        self._hs = {}                               # label -> h D (or None)
+        for S in (self._A, self._B):
+            S.sdepth = {k: int(t * D) for k, t in S.depth.items()}
+        self._parity = {}
         self._R = V.base_ring()
         self._build()
 
@@ -471,7 +500,35 @@ class FusionQuotientUpTo(SageObject):
             sage: e.fusion_product(e).depth_quotient_up_to(0, 2)._sign(1, ((), 0))
             1
         """
-        return -1 if (p and self._A.M._parity_key(a)) else 1
+        if not p:
+            return 1
+        q = self._parity.get(a)
+        if q is None:
+            q = self._parity[a] = self._A.M._parity_key(a)
+        return -1 if q else 1
+
+    def _scaled_weight(self, g):
+        """``h D`` for the field ``g`` of weight ``h`` (an integer), or
+        ``None`` if ``h`` is not a multiple of ``1/D`` (then the coproduct
+        computes with rationals).
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+            sage: e = V.verma_module(1/2).simple_quotient()
+            sage: F = e.fusion_product(e).depth_quotient_up_to(0, 2)
+            sage: F._scaled_weight(F._gens[0]), F._scaled_weight(('x', {}, 1/3, 0))
+            (2, None)
+        """
+        i = g[0]
+        try:
+            return self._hs[i]
+        except KeyError:
+            hs = g[2] * self._D
+            hs = int(hs) if hs in ZZ else None
+            self._hs[i] = hs
+            return hs
 
     def _delta_mode(self, g, k, x):
         r"""
@@ -554,21 +611,39 @@ class FusionQuotientUpTo(SageObject):
             sage: total, missing
             (14, 0)
         """
+        hs = self._scaled_weight(g)
+        if hs is None:
+            return self._delta_mode_q(g, k, x)
         i, gd, h, p = g
         a, b = x
-        A, B, K = self._A, self._B, self._K
-        ta, tb = A.depth[a], B.depth[b]
+        A, B, D, Ks = self._A, self._B, self._D, self._Ks
+        ta, tb = A.sdepth[a], B.sdepth[b]          # depths and h, times D
+        top = ta + hs - D                           # (depth(a) + h - 1) D
         res = {}
-        for j in range(floor(ta + h - 1) + 1):      # v_(j) a = 0 beyond
-            c = binomial(k, j)
+        for j in range(top // D + 1):               # v_(j) a = 0 beyond
+            c = _binomial(k, j)
             if c:
-                if ta + h - 1 - j + tb > K:
+                if top - j * D + tb > Ks:
                     return None
-                _tensor_into(res, A.act(i, gd, j, a), {b: 1}, c)
-        if tb + h - 1 - k >= 0:
-            if ta + tb + h - 1 - k > K:
+                for a2, ca in A.act(i, gd, j, a).items():
+                    key = (a2, b)
+                    r = res.get(key, 0) + c * ca
+                    if r:
+                        res[key] = r
+                    else:
+                        res.pop(key, None)
+        e = tb + top - ta - k * D                   # (depth(b) + h - 1 - k) D
+        if e >= 0:
+            if ta + e > Ks:
                 return None
-            _tensor_into(res, {a: 1}, B.act(i, gd, k, b), self._sign(p, a))
+            s = self._sign(p, a)
+            for b2, cb in B.act(i, gd, k, b).items():
+                key = (a, b2)
+                r = res.get(key, 0) + s * cb
+                if r:
+                    res[key] = r
+                else:
+                    res.pop(key, None)
         return res
 
     def _delta_pole(self, g, bb, x):
@@ -588,6 +663,97 @@ class FusionQuotientUpTo(SageObject):
              (((), 0), (((0, -1),), 0)): -1,
              ((((0, -2),), 0), ((), 0)): 1}
         """
+        hs = self._scaled_weight(g)
+        if hs is None:
+            return self._delta_pole_q(g, bb, x)
+        i, gd, h, p = g
+        a, b = x
+        A, B, D, Ks = self._A, self._B, self._D, self._Ks
+        ta, tb = A.sdepth[a], B.sdepth[b]          # depths and h, times D
+        if ta + hs - D - bb * D + tb > Ks:
+            return None
+        res = {}
+        for a2, ca in A.act(i, gd, bb, a).items():
+            if ca:
+                res[(a2, b)] = ca
+        s = self._sign(p, a)
+        top = tb + hs - D                           # (depth(b) + h - 1) D
+        for k in range(top // D + 1):
+            c = _binomial(bb, k) * (-1) ** ((bb - k) % 2)
+            if c:
+                if ta + top - k * D > Ks:
+                    return None
+                sc = s * c
+                for b2, cb in B.act(i, gd, k, b).items():
+                    key = (a, b2)
+                    r = res.get(key, 0) + sc * cb
+                    if r:
+                        res[key] = r
+                    else:
+                        res.pop(key, None)
+        return res
+
+    def _delta_mode_q(self, g, k, x):
+        """:meth:`_delta_mode` with rational depths (any weight).
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, -22/5, conformal_vector='L')
+            sage: phi = V.verma_module(-1/5).simple_quotient()
+            sage: F = phi.fusion_product(phi).depth_quotient_up_to(1, 5)
+            sage: all(F._delta_mode_q(g, k, x) == F._delta_mode(g, k, x)
+            ....:     for g in F._gens for k in range(-4, 4) for x, _ in F._tensors())
+            True
+
+        With odd generators (Koszul signs): symplectic fermions, the module
+        induced from the Grassmann top ``C^{2|2}``::
+
+            sage: from vertex_algebras import UniversalVertexAlgebra, NormallyOrderedExpressions
+            sage: Y.<cp, cm> = NormallyOrderedExpressions(QQ, parities={'cp': 1, 'cm': 1})
+            sage: SF = UniversalVertexAlgebra(QQ, Y, {('cp', 'cm'): [0, 1]}, conformal_vector=cm*cp)
+            sage: Ep = matrix(QQ, 4, 4, {(1, 0): 1, (3, 2): 1})
+            sage: Em = matrix(QQ, 4, 4, {(2, 0): 1, (3, 1): -1})
+            sage: G = SF.induced_module(SF.zhu_algebra().module({'cp': Ep, 'cm': Em},
+            ....:                                               parities=[0, 1, 1, 0]))
+            sage: F = G.fusion_product(G).depth_quotient_up_to(1, 3)
+            sage: all(F._delta_mode_q(g, k, x) == F._delta_mode(g, k, x)
+            ....:     for g in F._gens for k in range(-3, 3) for x, _ in F._tensors())
+            True
+            sage: all(F._delta_pole_q(g, bb, x) == F._delta_pole(g, bb, x)
+            ....:     for g in F._gens for bb in range(-4, 0) for x, _ in F._tensors())
+            True
+        """
+        i, gd, h, p = g
+        a, b = x
+        A, B, K = self._A, self._B, self._K
+        ta, tb = A.depth[a], B.depth[b]
+        res = {}
+        for j in range(floor(ta + h - 1) + 1):      # v_(j) a = 0 beyond
+            c = _binomial(k, j)
+            if c:
+                if ta + h - 1 - j + tb > K:
+                    return None
+                _tensor_into(res, A.act(i, gd, j, a), {b: 1}, c)
+        if tb + h - 1 - k >= 0:
+            if ta + tb + h - 1 - k > K:
+                return None
+            _tensor_into(res, {a: 1}, B.act(i, gd, k, b), self._sign(p, a))
+        return res
+
+    def _delta_pole_q(self, g, bb, x):
+        """:meth:`_delta_pole` with rational depths (any weight).
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, -22/5, conformal_vector='L')
+            sage: phi = V.verma_module(-1/5).simple_quotient()
+            sage: F = phi.fusion_product(phi).depth_quotient_up_to(1, 5)
+            sage: all(F._delta_pole_q(g, bb, x) == F._delta_pole(g, bb, x)
+            ....:     for g in F._gens for bb in range(-5, 0) for x, _ in F._tensors())
+            True
+        """
         i, gd, h, p = g
         a, b = x
         A, B, K = self._A, self._B, self._K
@@ -598,7 +764,7 @@ class FusionQuotientUpTo(SageObject):
         _tensor_into(res, A.act(i, gd, bb, a), {b: 1}, 1)
         s = self._sign(p, a)
         for k in range(floor(tb + h - 1) + 1):
-            c = binomial(bb, k) * (-1) ** ((bb - k) % 2)
+            c = _binomial(bb, k) * (-1) ** ((bb - k) % 2)
             if c:
                 if ta + tb + h - 1 - k > K:
                     return None
@@ -744,7 +910,7 @@ class FusionQuotientUpTo(SageObject):
                         if rm is None:
                             r = None
                         else:
-                            _add(r, rm, -binomial(bb, m) * (-1) ** (m % 2))
+                            _add(r, rm, -_binomial(bb, m) * (-1) ** (m % 2))
                     if r:
                         rels.append(r)
                     bb -= 1
