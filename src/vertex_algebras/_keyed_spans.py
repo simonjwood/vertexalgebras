@@ -83,6 +83,13 @@ FILL_CHECK = 16
 #: the dense kernel takes 0.9 s, all sparse 6.8 s.
 KERNEL_DENSE_FILL = 0.02
 
+#: :func:`_kernel_and_echelon` first tries sparse elimination (the C++
+#: ``QEchelon_``, pivots leftmost) and gives up for the dense path at this
+#: fill of the reduced rows (rank x (columns + rank)).  The fusion spans of
+#: the Virasoro algebra at c = 0 (2168 x 2323, 0.6% filled by the reduced
+#: echelon form): 0.1 s sparse, 8.6 s dense (mod-p profile and Dixon solve).
+SPARSE_KERNEL_FILL = 0.02
+
 #: Primes for the mod-p rank profiles of dense blocks (see
 #: :func:`_column_profile`): below 2^24, where Sage's dense matrices over
 #: ``GF(p)`` use the fast ``Matrix_modn_dense_double`` (LinBox) echelon
@@ -216,6 +223,9 @@ def _kernel_and_echelon(M):
     n, m = M.dimensions()
     if not n:
         return matrix.identity(QQ, m), matrix(QQ, 0, m), []
+    r = _sparse_kernel_and_echelon(M)
+    if r is not None:
+        return r
     Z = M._clear_denom()[0]
     P = _column_profile(Z)
     if P is None:
@@ -235,6 +245,104 @@ def _kernel_and_echelon(M):
         E = matrix.identity(QQ, n).augment(X).matrix_from_columns([where[j] for j in range(m)])
         return K, E, list(P)
     return K, None, None
+
+
+def _sparse_kernel_and_echelon(M):
+    r"""
+    :func:`_kernel_and_echelon` of ``M`` (independent rows, over ``QQ``)
+    by :func:`_sparse_echelon`, or ``None`` when that gives up or the rows
+    are dependent.
+
+    EXAMPLES::
+
+        sage: from vertex_algebras._keyed_spans import (_sparse_kernel_and_echelon,
+        ....:                                           _frac_engine)
+        sage: M = matrix(QQ, 60, 240, {(i, j): QQ((i + j, 3)) for i in range(60)
+        ....:                          for j in (4*i + 1, 4*i + 2, (4*i + 7) % 240)})
+        sage: r = _sparse_kernel_and_echelon(M)
+        sage: _frac_engine() is None or (r[0] == M.right_kernel_matrix(basis='pivot').T
+        ....:     and r[1] == M.echelon_form() and r[2] == list(M.pivots()))
+        True
+        sage: _sparse_kernel_and_echelon(matrix(QQ, [[1, 2], [2, 4]])) is None   # dependent
+        True
+    """
+    r = _sparse_echelon(M)
+    if r is None or len(r[0]) < M.nrows():
+        return None
+    return r[1:]
+
+
+def _sparse_echelon(M):
+    r"""
+    ``(I, K, E, P)`` for the matrix ``M`` over ``QQ`` by sparse elimination
+    in C++ (``_linear_algebra_engine.QEchelon_``, the rows inserted in
+    order, the pivot of a row its leftmost entry): ``I`` the rows
+    independent of the earlier ones (as ``pivot_rows()``), ``E`` the reduced
+    echelon form of the row space (``rank x ncols``), ``P`` its pivot
+    columns and ``K`` the right kernel (columns ``e_f - Σ_i E[i, f]
+    e_{P_i}``, one per non-pivot column ``f``), all exact.  ``None``
+    without the compiled engine, or when ``M`` or the reduced rows fill
+    :data:`SPARSE_KERNEL_FILL` of a dense matrix (checked every
+    :data:`FILL_CHECK` rows): the dense path is then faster.
+
+    EXAMPLES:
+
+    Sixty independent sparse rows with thirty combinations of them in
+    between::
+
+        sage: from vertex_algebras._keyed_spans import _sparse_echelon, _frac_engine
+        sage: M = matrix(QQ, 60, 240, {(i, j): QQ((i + j, 3)) for i in range(60)
+        ....:                          for j in (4*i + 1, 4*i + 2, (4*i + 7) % 240)})
+        sage: M = M[:30].stack(matrix(QQ, 30, 60, {(i, 2*i): i for i in range(30)}) * M).stack(M[30:])
+        sage: r = _sparse_echelon(M)
+        sage: _frac_engine() is None or (len(r[0]) == 60 and tuple(r[0]) == M.pivot_rows()
+        ....:     and r[1] == M.right_kernel_matrix(basis='pivot').T
+        ....:     and r[2] == M.echelon_form()[:60] and r[3] == list(M.pivots()))
+        True
+
+    TESTS:
+
+    Too dense: ``None`` (the dense path takes over)::
+
+        sage: M = matrix(QQ, 40, 50, lambda i, j: (i + 1)**(j % 7) + j)
+        sage: _sparse_echelon(M) is None
+        True
+    """
+    mod = _frac_engine()
+    if mod is None:
+        return None
+    from sage.matrix.constructor import matrix
+    from sage.rings.rational_field import QQ
+    n, m = M.dimensions()
+    rows = [r.dict() for r in M.rows()]
+    if sum(len(r) for r in rows) >= SPARSE_KERNEL_FILL * n * m:
+        return None
+    E = mod.QEchelon_(False)
+    E.set_ranks((j, m - j) for j in range(m))   # pivot: the leftmost key
+    rows = [[(j, int(c.numerator()), int(c.denominator())) for j, c in r.items()]
+            for r in rows]
+    I = []
+    for i in range(0, n, FILL_CHECK):
+        flags = E.insert_many(rows[i:i + FILL_CHECK])
+        I.extend(i + t for t, f in enumerate(flags) if f)
+        if E.fill(m) >= SPARSE_KERNEL_FILL:
+            return None
+    R = sorted(E.rows())
+    P = [p for p, _, _ in R]
+    Ps = set(P)
+    F = [j for j in range(m) if j not in Ps]
+    fidx = {j: i for i, j in enumerate(F)}
+    e, k = {}, {}
+    for i, (p, row, _) in enumerate(R):
+        for j, a, b in row:
+            c = QQ((a, b))
+            e[i, j] = c
+            if j != p:
+                k[p, fidx[j]] = -c
+    for i, f in enumerate(F):
+        k[f, i] = QQ.one()
+    return (I, matrix(QQ, m, len(F), k, sparse=False),
+            matrix(QQ, len(R), m, e, sparse=False), P)
 
 
 def _addmul(dst, src, c):
@@ -818,7 +926,12 @@ class _Block:
         prime dividing some minors).  The exact greedy choice of a batch
         of nearly full rank costs an echelon form over ``QQ``: the level-2
         Zhu algebra of the triplet algebra W(3), degree bound 26, spent 268
-        of 496 s in six of them.
+        of 496 s in six of them.  When :func:`_sparse_echelon` succeeds (a
+        sparse ``M`` whose echelon form stays sparse), its exact greedy
+        choice, kernel and echelon form are used instead, without the
+        profile and the check (the Virasoro fusion spans at c = 0: 4116 x
+        2619, 10 s for ``pivot_rows()`` mod p and 1 s for the kernel
+        before).
 
         EXAMPLES::
 
@@ -841,21 +954,30 @@ class _Block:
         from sage.rings.rational_field import QQ
         if self._R is not QQ or len(cand) == k0:
             return None
-        Z = M._clear_denom()[0]
-        for p in PROFILE_PRIMES:
-            I = Z.change_ring(GF(p)).pivot_rows()
-            if len(I) >= k0 and tuple(I[:k0]) == tuple(range(k0)):
-                break
-        else:
-            return None
-        Iset = set(I)
-        A = M.matrix_from_rows(I)            # the independent vectors, in order
-        K, E, P = _kernel_and_echelon(A)
-        rej = [i for i in range(len(cand)) if i not in Iset]
-        step = max(1, ANNIHILATOR_CHUNK // max(1, len(cols)))
-        for a in range(0, len(rej), step):
-            if not (M.matrix_from_rows(rej[a:a + step]) * K).is_zero():
+        r = _sparse_echelon(M)
+        if r is not None:
+            # exact: the greedy choice, the echelon form and the kernel
+            I, K, E, P = r
+            if tuple(I[:k0]) != tuple(range(k0)):
                 return None
+            Iset = set(I)
+            A = M.matrix_from_rows(I)
+        else:
+            Z = M._clear_denom()[0]
+            for p in PROFILE_PRIMES:
+                I = Z.change_ring(GF(p)).pivot_rows()
+                if len(I) >= k0 and tuple(I[:k0]) == tuple(range(k0)):
+                    break
+            else:
+                return None
+            Iset = set(I)
+            A = M.matrix_from_rows(I)            # the independent vectors, in order
+            K, E, P = _kernel_and_echelon(A)
+            rej = [i for i in range(len(cand)) if i not in Iset]
+            step = max(1, ANNIHILATOR_CHUNK // max(1, len(cols)))
+            for a in range(0, len(rej), step):
+                if not (M.matrix_from_rows(rej[a:a + step]) * K).is_zero():
+                    return None
         out = []
         for i, l in zip(range(k0, len(cand)), labels):
             ok = i in Iset
