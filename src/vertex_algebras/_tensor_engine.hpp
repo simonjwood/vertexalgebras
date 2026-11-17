@@ -136,7 +136,7 @@ class TensorEngine : public EngineCore<TensorEngine<Ring>, Ring>, public TensorE
         Factor f;
         f.l.reset(new LEng(gram, this->ring_ptr));
         f.l->stop = this->stop;
-        wire(f.l->schur_cache);
+        wire(f.l->complete_h_cache);
         wire(f.l->eplus_cache);
         wire(f.l->cser_cache);
         wire(f.l->der_cache);

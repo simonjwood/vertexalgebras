@@ -32,8 +32,11 @@ modes satisfy ``[h_i(m), h_j(k)] = m B[i,j] δ_{m+k,0}``; the letter
 
     Y(e^q, z) = e_q z^{q(0)} exp(Σ_{m>0} q(-m) z^m/m) exp(-Σ_{m>0} q(m) z^{-m}/m),
 
-so that ``e^q_(n) e^p = ε(q,p) S_{-n-1-B(q,p)}(q) e^{q+p}`` where ``S_k`` are
-the Schur polynomials ``Σ_k S_k z^k = exp(Σ_{m>0} q(-m) z^m/m)``.  Hence the
+so that ``e^q_(n) e^p = ε(q,p) S_{-n-1-B(q,p)}(q) e^{q+p}`` where ``S_k(q)``
+is the complete symmetric function ``h_k`` with the power sums ``p_m``
+replaced by the modes ``q(-m)``, that is
+``Σ_k S_k z^k = exp(Σ_{m>0} q(-m) z^m/m)`` (the *elementary Schur
+polynomials* of the KP and lattice vertex algebra literature).  Hence the
 OPE ``e^q(z) e^p(w)`` starts at ``(z-w)^{B(q,p)}``: it has ``-B(q,p)`` poles
 when ``B(q,p) < 0`` and is regular otherwise.  The parity of ``e^q`` is
 ``B(q,q) mod 2``; locality requires
@@ -998,7 +1001,7 @@ class LatticeVertexAlgebra(VertexAlgebra):
                 base_ring, any(B[i, i] % 2 for i in range(n)),
                 degrees is not None or conformal_vector is not None,
                 conformal_vector is not None))
-        self._schur_one = self._one_R
+        self._complete_h_one = self._one_R
         self._eps_spec = epsilon
         self._setup_cocycle(epsilon)
         self._data = {'T': conformal_vector,
@@ -1664,7 +1667,7 @@ class LatticeVertexAlgebra(VertexAlgebra):
         self._rec_cache = {}
         self._eplus_cache = {}
         self._cser_cache = {}
-        self._schur_cache = {}
+        self._complete_h_cache = {}
         self._eps_cache = {}
 
     # ------------------------------------------------------------------ #
@@ -1749,20 +1752,21 @@ class LatticeVertexAlgebra(VertexAlgebra):
                           R(f * row[j]))
         return out
 
-    def _schur(self, q, k):
-        """``S_k(q)`` as a dict ``{letters: coeff}``.
+    def _complete_h(self, q, k):
+        """``S_k(q)``, the complete symmetric function ``h_k`` at ``p_m = q(-m)``,
+        as a dict ``{letters: coeff}``.
 
         EXAMPLES::
 
             sage: import vertex_algebras as va
             sage: L = va.Lattice(QQ, matrix([[2]]))
-            sage: sorted(L._schur((1,), 2).items())        # (h(-1)^2 + h(-2))/2
+            sage: sorted(L._complete_h((1,), 2).items())        # (h(-1)^2 + h(-2))/2
             [(((0, 0), (0, 0)), 1/2), (((0, 1),), 1/2)]
-            sage: L._schur((1,), 0), L._schur((1,), -1)
+            sage: L._complete_h((1,), 0), L._complete_h((1,), -1)
             ({(): 1}, {})
         """
         key = (q, k)
-        r = self._schur_cache.get(key)
+        r = self._complete_h_cache.get(key)
         if r is not None:
             return r
         if k < 0:
@@ -1772,7 +1776,7 @@ class LatticeVertexAlgebra(VertexAlgebra):
         else:
             r = {}
             for m in range(1, k + 1):
-                prev = self._schur(q, k - m)
+                prev = self._complete_h(q, k - m)
                 if not prev:
                     continue
                 c0 = self._one_R / (k * _fact(m - 1))
@@ -1782,7 +1786,7 @@ class LatticeVertexAlgebra(VertexAlgebra):
                     c = c0 * qi
                     for L, v in prev.items():
                         self._add(r, _insert_letter(L, (i, m - 1)), c * v)
-        self._schur_cache[key] = r
+        self._complete_h_cache[key] = r
         return r
 
     def _nmax(self, a, b):
@@ -2063,7 +2067,7 @@ class LatticeVertexAlgebra(VertexAlgebra):
             sig = -n - 1 - Bqp - pw
             if sig < 0:
                 continue
-            Ssig = self._schur(q, sig)
+            Ssig = self._complete_h(q, sig)
             for LW, cW in dW.items():
                 cW = eps * cW
                 for LS, cS in Ssig.items():
@@ -2233,7 +2237,7 @@ class LatticeVertexAlgebra(VertexAlgebra):
             if not b[0]:
                 p = b[1]
                 k = -n - 1 - self._form(q, p)
-                S = self._schur(q, k)
+                S = self._complete_h(q, k)
                 if S:
                     eps = self._eps(q, p)
                     qp = tuple(x + y for x, y in zip(q, p))

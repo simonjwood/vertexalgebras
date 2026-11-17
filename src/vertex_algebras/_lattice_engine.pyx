@@ -410,8 +410,8 @@ cdef class Engine:
         return self._elem_out(r)
 
     def cache_sizes(self):
-        """Entries of the E^+, creation series, Schur and derivative
-        caches, interned Heisenberg monomials and keys, memoised monomial
+        """Entries of the E^+, creation series, complete symmetric
+        function and derivative caches, interned Heisenberg monomials and keys, memoised monomial
         products, and the scheduler statistics (cumulative).
 
         EXAMPLES::
@@ -423,12 +423,12 @@ cdef class Engine:
             sage: eps = [((q,), (p,), one(1)) for q in range(-2, 3) for p in range(-2, 3)]
             sage: _ = E.ope_mono(ep, em, eps)
             sage: d = E.cache_sizes(); sorted(d)
-            ['cseries', 'deriv', 'eplus', 'heisenberg', 'idle_ms', 'keys',
-             'products', 'pushed', 'schur', 'stolen', 'wait_ms', 'waits']
+            ['complete_h', 'cseries', 'deriv', 'eplus', 'heisenberg', 'idle_ms',
+             'keys', 'products', 'pushed', 'stolen', 'wait_ms', 'waits']
             sage: d['keys'] >= 2
             True
         """
         s = self.e.cache_sizes()
-        return dict(zip(['eplus', 'cseries', 'schur', 'deriv',
+        return dict(zip(['eplus', 'cseries', 'complete_h', 'deriv',
                          'heisenberg', 'keys', 'products', 'pushed', 'stolen',
                          'waits', 'wait_ms', 'idle_ms'], s))

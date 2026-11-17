@@ -2,7 +2,7 @@
 // Copyright (C) Cardiff University 2026
 // C++ engine of lattice vertex algebras: the free-field kernel of
 // _lattice_core.pyx (letter series, E^+, annihilation parts,
-// creation series, Schur polynomials, E^-; see
+// creation series, complete symmetric functions, E^-; see
 // LatticeVertexAlgebra._letter_series) on interned monomials, with threads
 // and the rest from EngineCore (_engine_base.hpp).  No Python objects
 // in here: the Cython wrapper _lattice_engine.pyx converts at
@@ -11,7 +11,7 @@
 //   Y(a, z) b = eps(q, p) z^{B(q,p)} E^-(q, z) W_{a,b}(z),
 //
 // a = :(Heisenberg letters) e^q:, b = :(letters) e^p:.  Everything in the
-// letter series W and in the Schur polynomials of E^- is rational (the Gram
+// letter series W and in the complete symmetric functions of E^- is rational (the Gram
 // matrix is integral), so they are computed over QQ (fmpq) whatever the base
 // ring; the base ring (the engine's Ring) enters through the coefficients
 // of elements (the per-group sums of letter series) and eps.
@@ -168,7 +168,7 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
     MonoTable hmons, qtab;                  // Heisenberg monomials, lattice vectors
     CMap<uint32_t> hprod_map, hdrop_map, letter_map, full_map;
     CMap<uint64_t> split_map;               // key -> pk(h, q)
-    ConcCache<QElem> schur_cache;           // pk(q, k)
+    ConcCache<QElem> complete_h_cache;           // pk(q, k)
     ConcCache<Series> eplus_cache;          // pk(q, h of b)
     ConcCache<std::vector<QElem>> cser_cache;   // pk(h, smax)
     ConcCache<Elem> der_cache;              // pk(key, order)
@@ -181,7 +181,7 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
             if ((int)row.size() != r) throw std::invalid_argument("Gram matrix not square");
         monos.tails = hmons.tails = qtab.tails = false;
         hintern(std::vector<uint32_t>());       // h id 0 = the monomial 1
-        wire(schur_cache);
+        wire(complete_h_cache);
         wire(eplus_cache);
         wire(cser_cache);
         wire(der_cache);
@@ -333,9 +333,9 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
     static void set_frac(QE &x, const fmpz_t num, const fmpz_t den) { fmpq_set_fmpz_frac(x.p, num, den); }
 
     // -- kernels (the .pyx's, line by line) ---------------------------------- //
-    // S_k(q): S_0 = 1, S_k = sum_{m=1..k} sum_i q_i / (k (m-1)!) x_{i,m-1} S_{k-m}
-    const QElem &schur(uint32_t qid, long k) {
-        return schur_cache.get(pk(qid, (uint32_t)k), [&]() -> QElem {
+    // S_k(q) = h_k at p_m = q(-m): S_0 = 1, S_k = sum_{m=1..k} sum_i q_i / (k (m-1)!) x_{i,m-1} S_{k-m}
+    const QElem &complete_h(uint32_t qid, long k) {
+        return complete_h_cache.get(pk(qid, (uint32_t)k), [&]() -> QElem {
             check();
             QElem res;
             if (k == 0) {
@@ -348,7 +348,7 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
             Z f, one(1);
             QE c0(Q), c(Q), t(Q);
             for (long m = 1; m <= k; m++) {
-                const QElem &prev = schur(qid, k - m);
+                const QElem &prev = complete_h(qid, k - m);
                 if (prev.empty()) continue;
                 fact(f.v, (ulong)(m - 1));
                 fmpz_mul_si(f.v, f.v, k);
@@ -739,7 +739,7 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
                 for (const auto &pd : Wsum) {
                     long sig = -n - 1 - Bqp - pd.first;
                     if (sig < 0 || pd.second.empty()) continue;
-                    const QElem &S = schur(g.q, sig);
+                    const QElem &S = complete_h(g.q, sig);
                     for (const auto &kw : pd.second) {
                         if (kw.first % T != (uint32_t)t) continue;
                         for (const auto &ks : S) {
@@ -969,7 +969,7 @@ class LatticeEngine : public EngineCore<LatticeEngine<Ring>, Ring>, public Latti
     }
     std::vector<size_t> cache_sizes() const override {
         std::vector<size_t> s = this->sched_stats();
-        s.insert(s.begin(), {eplus_cache.size(), cser_cache.size(), schur_cache.size(),
+        s.insert(s.begin(), {eplus_cache.size(), cser_cache.size(), complete_h_cache.size(),
                              der_cache.size(), (size_t)hmons.n, (size_t)monos.n, hprod_map.size()});
         return s;
     }
