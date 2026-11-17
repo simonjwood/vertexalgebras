@@ -64,6 +64,7 @@ cdef extern from "_linear_algebra_engine.hpp" namespace "vae":
         double fill(int64_t)
         vector[pair[uint32_t, pair[QData, QData]]] rows() except +_raise_error
         vector[uint32_t] keys() except +_raise_error
+        vector[pair[uint32_t, QData]] row_list() except +_raise_error
         vector[cbool] done
 
 
@@ -225,6 +226,21 @@ cdef class QEchelon_:
             [3, 4, 7]
         """
         return list(self.e.keys())
+
+    def row_list(self):
+        """
+        The rows without their combos, ``(pivot, row)``, pivots in
+        insertion order.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+            sage: E = QEchelon_(True); _ = E.insert_many([[(3, 2, 1), (4, -1, 5)]]); E.row_list()
+            [(4, [(3, -10, 1), (4, 1, 1)])]
+        """
+        cdef vector[pair[uint32_t, QData]] r = self.e.row_list()
+        cdef size_t i
+        return [(r[i].first, _q_out(r[i].second)) for i in range(r.size())]
 
     def rows(self):
         """

@@ -468,6 +468,40 @@ class _Block:
         self._qstate = None
         self._rows_d = rows
 
+    @property
+    def _rows_ro(self):
+        r"""
+        The reduced rows for READING ONLY (the row of each pivot as
+        ``[0]``; no combos while the rows live in C++): rows kept in C++
+        are converted without their combos (most of the entries: the
+        fusion spans of notebook 16, 0.8M row and 5.7M combo entries) and
+        stay in C++; the conversion is cached until the next batch.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._keyed_spans import _Block, _frac_engine
+            sage: B = _Block(QQ, key_order=lambda k: k)
+            sage: _ = B.insert_many([{2*i: 1, 2*i + 1: 2} for i in range(60)])
+            sage: B._rows_ro[119][0], _frac_engine() is None or B._qstate is not None
+            ({118: 1/2, 119: 1}, True)
+            sage: r = B.rows(); r[0][0] = 5        # the caller owns what rows() returns
+            sage: B.rows()[0], B._rows_ro[119][0]
+            ({118: 1/2, 119: 1}, {118: 1/2, 119: 1})
+            sage: B._rows[119][1]                                # the combo: converts
+            {59: 1/2}
+        """
+        q = self._qstate
+        if q is None:
+            return self._rows_d
+        v = q.get('view')
+        if v is None:
+            from sage.rings.rational_field import QQ
+            keyof = q['keyof']
+            v = {keyof[p]: ({keyof[k]: QQ((a, b)) for k, a, b in row}, None)
+                 for p, row in q['E'].row_list()}
+            q['view'] = v
+        return v
+
     def _sync_q(self):
         r"""
         Convert the rows kept in C++ (``_qstate``) to Python (``_rows``)
@@ -732,7 +766,7 @@ class _Block:
             self._fresh()
             return set(self._cols)
         keys = set()
-        for row, _ in self._rows.values():
+        for row, _ in self._rows_ro.values():
             keys.update(row)
         return keys
 
@@ -831,6 +865,7 @@ class _Block:
             load = True
         else:
             load = False
+            q.pop('view', None)          # the rows change
         E, ids, keyof = q['E'], q['ids'], q['keyof']
         for k in keys:
             if k not in ids:
@@ -923,7 +958,7 @@ class _Block:
             (True, ['u', 'v', 'x'], [3, 2, 1])
         """
         from sage.matrix.constructor import matrix
-        if not self._dense and self._rows:
+        if not self._dense and self._rows_ro:
             self._K = self._annihilator_of_rows()
         out = self._annihilator_insert_many(vecs, labels)
         if out is not None:
@@ -1089,11 +1124,12 @@ class _Block:
         from sage.rings.rational_field import QQ
         if self._R is not QQ:
             return None
-        piv = list(self._rows)
+        rows = self._rows_ro
+        piv = list(rows)
         keys = set()
-        for row, _ in self._rows.values():
+        for row, _ in rows.values():
             keys.update(row)
-        free = [k for k in keys if k not in self._rows]
+        free = [k for k in keys if k not in rows]
         if len(free) > ANNIHILATOR_MAX:
             return None
         if self._key_order is not None:
@@ -1103,7 +1139,7 @@ class _Block:
         K = matrix(QQ, len(kkeys), len(free),
                    {(i, j): -row[f] for i, p in enumerate(piv)
                     for j, f in enumerate(free)
-                    for row in (self._rows[p][0],) if f in row}, sparse=False)
+                    for row in (rows[p][0],) if f in row}, sparse=False)
         for j in range(len(free)):
             K[np + j, j] = 1
         return (kkeys, K)
@@ -1317,7 +1353,7 @@ class _Block:
         """
         r = {k: c for k, c in v.items() if c}
         t = {}
-        rows = self._rows
+        rows = self._rows_ro
         for p in [k for k in r if k in rows]:
             c = r.get(p)
             if not c:
@@ -1723,7 +1759,7 @@ class _Block:
         if self._dense:
             self._echelon()
             return [self._cols[j] for j in self._pivcols]
-        ps = list(self._rows)
+        ps = list(self._rows_ro)
         if self._key_order is not None:
             ps.sort(key=self._key_order, reverse=True)
         return ps
@@ -1752,7 +1788,14 @@ class _Block:
             cols = self._cols
             return [{cols[j]: c for j, c in row.dict().items() if c}
                     for row in self._echelon().rows()]
-        return [dict(self._rows[p][0]) for p in self.pivots()]
+        ps = self.pivots()
+        rows = self._rows_ro
+        if self._qstate is not None:
+            # fresh dicts converted from C++: hand them over (no copy) and
+            # drop them from the cache (notebook 16: 3.6 s of copies)
+            self._qstate.pop('view', None)
+            return [rows[p][0] for p in ps]
+        return [dict(rows[p][0]) for p in ps]
 
     def normal_form(self, v):
         r"""

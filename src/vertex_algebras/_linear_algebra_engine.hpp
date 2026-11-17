@@ -660,6 +660,12 @@ class QEchelon {
         o.erase(std::unique(o.begin(), o.end()), o.end());
         return o;
     }
+    // the rows without their combos: (pivot, row), pivots in insertion order
+    std::vector<std::pair<uint32_t, QData>> row_list() const {
+        std::vector<std::pair<uint32_t, QData>> o;
+        for (uint32_t p : S.pivot_order) o.emplace_back(p, out(S.rows.at(p).first));
+        return o;
+    }
     // all rows: (pivot, row, combo), pivots in insertion order
     std::vector<std::pair<uint32_t, std::pair<QData, QData>>> rows() const {
         std::vector<std::pair<uint32_t, std::pair<QData, QData>>> o;
