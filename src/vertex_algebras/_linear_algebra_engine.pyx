@@ -63,6 +63,7 @@ cdef extern from "_linear_algebra_engine.hpp" namespace "vae":
         vector[cbool] insert_many(const vector[QData] &, PollFn) except +_raise_error
         double fill(int64_t)
         vector[pair[uint32_t, pair[QData, QData]]] rows() except +_raise_error
+        vector[uint32_t] keys() except +_raise_error
         vector[cbool] done
 
 
@@ -211,6 +212,19 @@ cdef class QEchelon_:
             1.0
         """
         return self.e.fill(ncols)
+
+    def keys(self):
+        """
+        The key ids of the rows, sorted.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._linear_algebra_engine import QEchelon_
+            sage: E = QEchelon_(False); _ = E.insert_many([[(3, 2, 1), (4, -1, 5)], [(7, 1, 1)]])
+            sage: E.keys()
+            [3, 4, 7]
+        """
+        return list(self.e.keys())
 
     def rows(self):
         """

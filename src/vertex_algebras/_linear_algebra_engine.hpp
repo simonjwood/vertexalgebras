@@ -295,11 +295,11 @@ class SparseRREF {
     void tick() {
         if (poll && (++ops % 4096) == 0 && poll()) throw Interrupted();
     }
-    // dst += c src (zeros dropped)
-    void addmul(Vec &dst, const Vec &src, const E &c) {
+    // dst += c src (zeros dropped); poll = false: no interruption point
+    void addmul(Vec &dst, const Vec &src, const E &c, bool poll_ok = true) {
         E t(R);
         for (const auto &kv : src) {
-            tick();
+            if (poll_ok) tick();
             R.mul(t, kv.second, c);
             auto it = dst.find(kv.first);
             if (it == dst.end()) dst.emplace(kv.first, t);
@@ -329,8 +329,10 @@ class SparseRREF {
         for (const auto &kv : t) addmul(out, rows.at(kv.first).second, kv.second);
         return out;
     }
-    // atomic: the new rows are computed first (polling may interrupt), then
-    // committed without interruption points
+    // atomic: the new row and combo are computed first (polling may
+    // interrupt), then the back-substitution updates the other rows in place
+    // without interruption points (copying each updated row so that an
+    // interrupt could drop the copies took 40% of the time: fusion spans)
     bool insert(Vec r) {
         Vec t;
         reduce_vec(r, t);
@@ -357,17 +359,13 @@ class SparseRREF {
         R.inv(inv, r.at(p));
         for (auto &kv : r) R.mul(kv.second, kv.second, inv);
         for (auto &kv : combo) R.mul(kv.second, kv.second, inv);
-        std::vector<std::pair<uint32_t, std::pair<Vec, Vec>>> upd;
-        for (const auto &row : rows) {
+        for (auto &row : rows) {          // commit: no interruption points
             auto it = row.second.first.find(p);
             if (it == row.second.first.end()) continue;
             R.neg(m, it->second);
-            std::pair<Vec, Vec> nr = row.second;
-            addmul(nr.first, r, m);
-            if (combos) addmul(nr.second, combo, m);
-            upd.emplace_back(row.first, std::move(nr));
+            addmul(row.second.first, r, m, false);
+            if (combos) addmul(row.second.second, combo, m, false);
         }
-        for (auto &u : upd) rows[u.first] = std::move(u.second);   // commit
         rows.emplace(p, std::make_pair(std::move(r), std::move(combo)));
         pivot_order.push_back(p);
         nlabels++;
@@ -652,6 +650,15 @@ class QEchelon {
         size_t n = 0;
         for (const auto &kv : S.rows) n += kv.second.first.size() + kv.second.second.size();
         return (double)n / ((double)r * (double)(ncols + (int64_t)r));
+    }
+    // the keys of the rows (sorted)
+    std::vector<uint32_t> keys() const {
+        std::vector<uint32_t> o;
+        for (const auto &kv : S.rows)
+            for (const auto &e : kv.second.first) o.push_back(e.first);
+        std::sort(o.begin(), o.end());
+        o.erase(std::unique(o.begin(), o.end()), o.end());
+        return o;
     }
     // all rows: (pivot, row, combo), pivots in insertion order
     std::vector<std::pair<uint32_t, std::pair<QData, QData>>> rows() const {

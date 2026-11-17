@@ -426,7 +426,8 @@ class _Block:
         self._R = R
         self._key_order = key_order
         self._vector_of = vector_of
-        self._rows = {}          # pivot key -> (row dict, combo dict or None)
+        self._rows_d = {}        # pivot key -> (row dict, combo dict or None)
+        self._qstate = None      # or the rows in C++ (_engine_insert_many)
         self._labels = []        # labels of the independent vectors
         self._vecs = []          # the independent vectors (unless vector_of)
         self._dense = False      # dense backend (see insert_many)
@@ -439,6 +440,59 @@ class _Block:
         # sparse elimination over fraction fields went into them
         from sage.rings.rational_field import QQ
         self._combos_ok = R is QQ
+
+    @property
+    def _rows(self):
+        r"""
+        The reduced rows ``{pivot: (row, combo)}``.  After a batch of
+        :meth:`_engine_insert_many` they live in C++ until read here: then
+        they are converted once and Python owns them (callers may change
+        the dict in place).
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._keyed_spans import _Block, _frac_engine
+            sage: B = _Block(QQ, key_order=lambda k: k)
+            sage: _ = B.insert_many([{2*i: 1, 2*i + 1: 1} for i in range(60)])
+            sage: _frac_engine() is None or B._qstate is not None     # rows in C++
+            True
+            sage: len(B._rows), B._qstate is None
+            (60, True)
+        """
+        if self._qstate is not None:
+            self._sync_q()
+        return self._rows_d
+
+    @_rows.setter
+    def _rows(self, rows):
+        self._qstate = None
+        self._rows_d = rows
+
+    def _sync_q(self):
+        r"""
+        Convert the rows kept in C++ (``_qstate``) to Python (``_rows``)
+        and drop the C++ state.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._keyed_spans import _Block
+            sage: B = _Block(QQ, key_order=lambda k: k)
+            sage: _ = B.insert_many([{2*i: 1, 2*i + 1: 2} for i in range(60)])
+            sage: B._sync_q(); B._qstate is None, B._rows[119][0]
+            (True, {118: 1/2, 119: 1})
+        """
+        from sage.rings.rational_field import QQ
+        q = self._qstate
+        if q is None:
+            return
+        E, keyof = q['E'], q['keyof']
+        ok = self._combos_ok
+        rows = {}
+        for p, row, cb in E.rows():
+            rows[keyof[p]] = ({keyof[k]: QQ((a, b)) for k, a, b in row},
+                              {k: QQ((a, b)) for k, a, b in cb} if ok else None)
+        self._rows_d = rows
+        self._qstate = None
 
     def rank(self):
         r"""
@@ -720,9 +774,13 @@ class _Block:
         from sage.rings.rational_field import QQ
         if self._R is not QQ or len(vecs) < DENSE_MIN:
             return [self.insert(v, l) for v, l in zip(vecs, labels)]
-        keys = set()
-        for row, _ in self._rows.values():
-            keys.update(row)
+        if self._qstate is not None:
+            keyof = self._qstate['keyof']
+            keys = {keyof[i] for i in self._qstate['E'].keys()}
+        else:
+            keys = set()
+            for row, _ in self._rows.values():
+                keys.update(row)
         for v in vecs:
             keys.update(v)
         ncols = len(keys)
@@ -765,11 +823,23 @@ class _Block:
         mod = _frac_engine()
         if mod is None or self._key_order is None or self._R is not QQ:
             return None
+        q = self._qstate
+        if q is None:
+            # the C++ state, kept between batches (until _rows is read):
+            # E, the key ids (stable) and keyof = the keys by id
+            q = {'E': mod.QEchelon_(bool(self._combos_ok)), 'ids': {}, 'keyof': []}
+            load = True
+        else:
+            load = False
+        E, ids, keyof = q['E'], q['ids'], q['keyof']
+        for k in keys:
+            if k not in ids:
+                ids[k] = len(keyof)
+                keyof.append(k)
+        # pivot = the key of largest rank = the largest in the key order
+        # (the pivots of existing rows stay the largest keys of their rows)
         order = sorted(keys, key=self._key_order)
-        ids = {k: i for i, k in enumerate(order)}
-        E = mod.QEchelon_(bool(self._combos_ok))
-        E.set_ranks(enumerate(range(len(order))))
-        E.set_nlabels(len(self._labels))
+        E.set_ranks((ids[k], r) for r, k in enumerate(order))
 
         def conv(d, idmap):
             out = []
@@ -780,16 +850,15 @@ class _Block:
             return out
 
         key_id = ids.__getitem__
-        for p, (row, cb) in self._rows.items():
-            E.load_row(ids[p], conv(row, key_id), conv(cb, int) if cb is not None else [])
+        if load:
+            E.set_nlabels(len(self._labels))
+            for p, (row, cb) in self._rows_d.items():
+                E.load_row(ids[p], conv(row, key_id), conv(cb, int) if cb is not None else [])
         out = []
 
         def sync():
-            rows = {}
-            for p, row, cb in E.rows():
-                rows[order[p]] = ({order[k]: QQ((a, b)) for k, a, b in row},
-                                  {k: QQ((a, b)) for k, a, b in cb} if self._combos_ok else None)
-            self._rows = rows
+            # the rows stay in C++ until _rows is read
+            self._qstate = q
 
         def accept(flags, a):
             for f, v, l in zip(flags, vecs[a:a + len(flags)], labels[a:a + len(flags)]):
