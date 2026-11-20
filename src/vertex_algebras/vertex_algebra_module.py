@@ -2499,9 +2499,71 @@ class _InducedModuleEngine:
                         if d:
                             E.set_top_action(i, m * D, k, [(self.key_id(kk), cin(up(c)))
                                                            for kk, c in d.items() if c])
+        words = set()
         for i in range(G):
             for j in range(G):
-                E.set_ope(i, j, [K._el_up(d) for d in V._ope_mono(((i, 0),), ((j, 0),))])
+                poles = V._ope_mono(((i, 0),), ((j, 0),))
+                for d in poles:
+                    words.update(d)
+                E.set_ope(i, j, [K._el_up(d) for d in poles])
+        # PROTOTYPE (branch module-engine-mode-order): the raising modes of a
+        # word's first letter act last (set_splits), with the products of V
+        self._V = V
+        self._h = list(M._h)
+        self._split_done = set()
+        import os
+        self._split = os.environ.get('VERTEX_ALGEBRAS_MODE_SPLIT') == '1'
+        if self._split:
+            self._ensure_splits(words)
+
+    def _ensure_splits(self, words):
+        """
+        Give the engine ``x_(i) B`` (``i`` below the number of raising
+        modes ``x_(j)``) for every word ``:x B:`` reachable from ``words``:
+        their tails, the words of the products, recursively (the words of
+        the OPEs are given at construction).
+
+        TESTS::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+            sage: M = V.verma_module(1/16); E = M._engine()
+            sage: E is None or E._ensure_splits([((0, 0), (0, 0))]) is None and ((0, 0), (0, 0)) in E._split_done
+            True
+        """
+        from sage.functions.other import ceil
+        K, h, done = self._K, self._h, self._split_done
+        one = self._V.base_ring().one()
+        nthreads = self._V._nthreads()
+        todo = {w for w in words if len(w) >= 2 and w not in done}
+        while todo:
+            els, tasks, owners = [], [], []
+            index = {}
+
+            def el(w):
+                k = index.get(w)
+                if k is None:
+                    k = index[w] = len(els)
+                    els.append(K.to_engine({w: one}))
+                return k
+            nxt = set()
+            for w in todo:
+                done.add(w)
+                x, B = w[:1], w[1:]
+                if len(B) >= 2 and B not in done:
+                    nxt.add(B)
+                r = max(0, int(ceil(h[x[0][0]] + x[0][1])) - 1)
+                if r:
+                    ix, iB = el(x), el(B)
+                    owners.append((w, len(tasks), r))
+                    tasks.extend((ix, i, iB) for i in range(r))
+            res = K.nprod_many_engine(els, tasks, nthreads) if tasks else []
+            for w, k, r in owners:
+                prods = res[k:k + r]
+                self._E.set_splits(w, prods)
+                for p in prods:
+                    nxt.update(u for u, _ in p if len(u) >= 2 and u not in done)
+            todo = nxt - done
 
     def key_id(self, key):
         """
@@ -2561,6 +2623,8 @@ class _InducedModuleEngine:
         """
         K, F = self._K, self._F
         cin, up = K._cin, K._up
+        if self._split:
+            self._ensure_splits({w for d in els for w in d})
         try:
             E = [[(w, cin(up(F(c)))) for w, c in d.items() if c] for d in els]
             Vs = [[(self.key_id(k), cin(up(F(c)))) for k, c in d.items() if c] for d in vecs]

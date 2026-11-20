@@ -45,6 +45,10 @@ struct ModuleEngineBase {
     // n is zero
     virtual void set_free(long n2) = 0;
     virtual void set_ope(int i, int j, const PolesData &poles) = 0;
+    // the commuted form of a word w = :x B: (word_act_compute): x_(i) B for
+    // i = 0, ..., r - 1 (r = raising(x): the x_(j) with wt x - j - 1 > 0),
+    // elements over word ids
+    virtual void set_splits(uint32_t w, const std::vector<ElemData> &xb) = 0;
     virtual std::vector<ElemData> act_many(const std::vector<ElemData> &els, const std::vector<ElemData> &vecs,
                                            const std::vector<int> &ie, const std::vector<long> &ns,
                                            const std::vector<int> &iv, int nthreads, PollFn poll) = 0;
@@ -282,6 +286,9 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
     bool is_free = false;                          // set_free: He's free module
     long free_n2 = 0;
     std::vector<Poles> opes;                       // poles of OPE(g_i, g_j) over word ids
+    // splits[w][i] = x_(i) B (w = :x B:, over word ids; set_splits); read
+    // only while act_many runs
+    std::unordered_map<uint32_t, std::vector<Flat>> splits;
     MonoTable words;                               // the monomials of V
     static constexpr uint32_t MAXL = 1u << 12;     // letter codes with a lock-free word id
     std::unique_ptr<std::atomic<uint32_t>[]> letter_words{new std::atomic<uint32_t>[MAXL]()};
@@ -557,7 +564,36 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         }
         long j2 = nmax(xw, key);
         C t(R);
-        for (long j = 0; j <= j2; j++) {
+        // The raising x_(j) (wt x - j - 1 > 0) would act first and visit keys
+        // deeper than the result; with the products x_(i) B known (set_splits)
+        // they act last instead:
+        //   s B_(n-1-j) x_(j) v = x_(j) B_(n-1-j) v - sum_{i <= j} C(j, i) (x_(i) B)_(n-1-i) v,
+        // and sum_{j < J} C(j, i) = C(J, i + 1)
+        long J = 0;
+        const std::vector<Flat> *sp = nullptr;
+        if (!splits.empty()) {
+            auto it = splits.find(w);
+            if (it != splits.end()) {
+                sp = &it->second;
+                J = std::max(0L, std::min(j2 + 1, (long)sp->size()));
+            }
+        }
+        for (long j = 0; j < J; j++) {
+            View bv = word_act(B, n - 1 - j, key);
+            for (uint32_t q = 0; q < bv.n; q++) add_flat(res, word_act(xw, j, bv.k[q]), bv.c[q]);
+        }
+        if (J > 0) {
+            Z bc;
+            for (long i = 0; i < J; i++) {
+                gbinom(bc.v, J, i + 1);
+                fmpz_neg(bc.v, bc.v);
+                for (const auto &kv : (*sp)[(size_t)i]) {
+                    R.mul_fmpz(t, kv.second, bc.v);
+                    add_flat(res, word_act(kv.first, n - 1 - i, key), t);
+                }
+            }
+        }
+        for (long j = J; j <= j2; j++) {
             View xv = word_act(xw, j, key);
             for (uint32_t q = 0; q < xv.n; q++) {
                 R.mul_si(t, xv.c[q], s);
@@ -668,6 +704,17 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         Poles P;
         for (const ElemData &e : poles) P.push_back(word_elem_in(e));
         opes[(size_t)i * G + j] = std::move(P);
+    }
+    // the number of j >= 0 with x_(j) raising: wt x - j - 1 > 0
+    long raising(uint32_t xw) const { return std::max(0L, (wt2(xw) + D - 1) / D - 1); }
+    void set_splits(uint32_t w, const std::vector<ElemData> &xb) override {
+        if (w >= words.n) throw std::out_of_range("unknown word id");
+        if (words[w].letters.size() < 2) throw std::invalid_argument("splits of a word of at least two letters");
+        uint32_t xw = letter_word(words[w].letters[0]);
+        if ((long)xb.size() != raising(xw)) throw std::invalid_argument("one product per raising mode");
+        std::vector<Flat> v;
+        for (const ElemData &d : xb) v.push_back(flat(word_elem_in(d)));
+        splits[w] = std::move(v);
     }
     Elem word_elem_in(const ElemData &d) {
         Elem e;

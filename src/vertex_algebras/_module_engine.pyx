@@ -47,6 +47,7 @@ cdef extern from "_module_engine.hpp" namespace "vae":
         void set_top_action(int, long, int, const ElemData &) except +_raise_error
         void set_free(long) except +_raise_error
         void set_ope(int, int, const PolesData &) except +_raise_error
+        void set_splits(uint32_t, const vector[ElemData] &) except +_raise_error
         vector[ElemData] act_many(const vector[ElemData] &, const vector[ElemData] &,
                                   const vector[int] &, const vector[long] &, const vector[int] &,
                                   int, PollFn) except +_raise_error nogil
@@ -346,6 +347,41 @@ cdef class ModuleEngine:
         for el in poles:
             P.push_back(self._words_in(el))
         self.e.set_ope(i, j, P)
+
+    def set_splits(self, word, products):
+        """The products ``x_(i) B`` (lists of ``(word, coefficient)``) for
+        ``i = 0, ..., r - 1`` of a word ``:x B:`` of at least two letters,
+        ``r`` the number of raising modes ``x_(j)`` (``wt x - j - 1 > 0``):
+        then they act after ``B`` (``_module_engine.hpp``,
+        ``word_act_compute``).  Between calls of :meth:`act_many`.
+
+        EXAMPLES:
+
+        ``:L L:_(n) L_{-2} v`` with and without the product ``L_(0) L =
+        dL`` (``c = 0``)::
+
+            sage: from vertex_algebras._module_engine import ModuleEngine
+            sage: one = lambda n, d=1: [((), n, d)]
+            sage: L = ((0, 0),); LL = ((0, 0), (0, 0))
+            sage: def engine():
+            ....:     E = ModuleEngine('q', 1, [0], [2], 1)
+            ....:     E.set_ope(0, 0, [[(((0, 1),), one(1))], [(L, one(2))], [], []])
+            ....:     E.set_top(1, [0])
+            ....:     E.set_zero_mode(0, [[(0, one(1, 16))]])
+            ....:     return E
+            sage: E1, E2 = engine(), engine()
+            sage: E2.set_splits(LL, [[(((0, 1),), one(1))]])
+            sage: w1, w2 = E1.intern_key(((0, -2),), 0), E2.intern_key(((0, -2),), 0)
+            sage: T = [(0, n, 0) for n in range(-2, 5)]
+            sage: r1 = E1.act_many([[(LL, one(1))]], [[(w1, one(1))]], T)
+            sage: r2 = E2.act_many([[(LL, one(1))]], [[(w2, one(1))]], T)
+            sage: [sorted((E1.key_of(k), c) for k, c in el) for el in r1] == [sorted((E2.key_of(k), c) for k, c in el) for el in r2]
+            True
+        """
+        cdef vector[ElemData] P
+        for el in products:
+            P.push_back(self._words_in(el))
+        self.e.set_splits(self._wid(word), P)
 
     def act_many(self, els, vecs, tasks, int nthreads=1):
         """``[els[e]_(n) vecs[v] for (e, n, v) in tasks]``: ``els`` lists of
