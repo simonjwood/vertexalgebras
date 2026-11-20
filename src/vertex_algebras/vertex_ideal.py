@@ -1029,7 +1029,7 @@ class FinitelyGeneratedVertexIdeal(VertexAlgebraIdeal):
             sage: b, g = B.gens()
             sage: Ig = B.ideal([g.no(g)], horizontal_grading='ambient')
             sage: Ig._grade_of_key(((1, 0), (1, 0))), Ig._grade_of_key(((0, 0),))
-            ((2,), (-1,))
+            ((-2,), (1,))
         """
         return self._V._grade_key(m)
 
