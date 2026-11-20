@@ -8,7 +8,10 @@
 // at the boundary.  The recursions are those of InducedModule (_gen_act,
 // _commutator_on) and _GeneratorActions (_action_key), line by line, except
 // that the raising modes of a word's first letter act last when the products
-// x_(i) B are given (set_splits, word_act_compute).
+// x_(i) B are given (set_splits, word_act_compute).  For a proto vertex
+// algebra the two orders may differ before the result is stable in the
+// relations' weight; why the induced module's guarantee holds either way:
+// vertex_algebra_module._mode_split.
 //
 // Rational quantities are scaled by D (the common denominator of the
 // generators' conformal weights h_i): h2[i] = D h_i, a physics mode m is

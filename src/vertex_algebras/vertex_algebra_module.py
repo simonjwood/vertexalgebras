@@ -2352,10 +2352,20 @@ def _mode_split():
 
     The environment variable ``VERTEX_ALGEBRAS_MODE_SPLIT=0`` switches it
     off (read when an engine is built).  For a vertex algebra both give the
-    same actions; for a proto vertex algebra (a presentation's ambient,
-    where the Jacobi identity holds modulo the relations) the actions
-    differ modulo the relations, and the induced modules of the quotient
-    are the same.
+    same actions.  For a proto vertex algebra (a presentation's ambient,
+    where the Jacobi identity holds modulo the relations) the actions may
+    differ by elements that vanish in every module of the quotient ``Q``.
+    So the guarantee of
+    :meth:`~vertex_algebras.quotient_vertex_algebra.QuotientVertexAlgebra.induced_module_up_to`
+    holds either way, for every ``max_weight``: both formulas hold in
+    every ``Q``-module, so sending a monomial in the generator modes to
+    the same product of modes in ``\bar M(U)`` respects the word modes,
+    and everything imposed (the relations' modes, the commutator formula
+    of the generators) maps to zero.  Hence the computed module maps onto
+    ``\bar M(U)`` in the computed depths with or without the split.  The
+    two may differ (both too big) while ``max_weight`` is too small to
+    kill every Jacobi failure of the ambient, i.e. before the result is
+    stable; they agree once it is ``\bar M(U)``.
 
     EXAMPLES::
 
