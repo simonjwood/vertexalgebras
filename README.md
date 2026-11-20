@@ -236,6 +236,11 @@ whole session; results do not depend on it.
   `tests/run_all.sh --fallback` runs the doctests in pure Python, and
   `VERTEX_ALGEBRAS_NO_ENGINE=1 tests/run_all.sh` runs everything without
   the C++ engines.
+- `VERTEX_ALGEBRAS_MODE_SPLIT=0` makes the C++ engine of induced modules
+  apply the modes of a normally ordered product in the old order, without
+  the faster split by the commutator formula; it is a developer switch for
+  comparing the two orders, and the guarantees of induced modules do not
+  depend on it.
 
 ## Acknowledgements
 
