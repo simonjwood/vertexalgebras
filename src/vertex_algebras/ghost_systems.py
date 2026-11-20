@@ -134,7 +134,8 @@ def _ghost_system(R, rank, odd, weight, names, conformal_vector,
     1/(z-w)``; ``weight`` = the weight ``λ`` of the first field of each pair
     (a value or a list), or a named ``conformal_vector`` (``'symmetric'``,
     ``'b1c0'``, ``'b0c1'``, ``'degrees'`` with ``degrees``), or any other
-    conformal vector; ``horizontal_grading='charge'`` = the ghost number.
+    conformal vector; ``horizontal_grading='charge'``: the first field of
+    each pair (``β``, ``b``) of charge 1, the second (``γ``, ``c``) of charge -1.
 
     TESTS::
 
@@ -145,7 +146,7 @@ def _ghost_system(R, rank, odd, weight, names, conformal_vector,
         sage: V = _ghost_system(QQ, 1, False, None, None, 'symmetric', None, 'charge',
         ....:                   None, None)
         sage: V.central_charge(), V.degrees(), V.horizontal_grade(V.gen('gamma'))
-        (-1, {'beta': 1/2, 'gamma': 1/2}, 1)
+        (-1, {'beta': 1/2, 'gamma': 1/2}, -1)
         sage: _ghost_system(QQ, 0, True, None, None, None, None, None, None, None)
         Traceback (most recent call last):
         ...
@@ -193,8 +194,8 @@ def _ghost_system(R, rank, odd, weight, names, conformal_vector,
     if isinstance(horizontal_grading, str):
         if horizontal_grading != 'charge':
             raise ValueError("horizontal_grading: 'charge', a dict or None")
-        # ghost number: c, γ have charge 1, b, β charge -1
-        horizontal_grading = dict([(s, -1) for s in X] + [(s, 1) for s in Y])
+        # the charge: β, b have charge 1, γ, c charge -1
+        horizontal_grading = dict([(s, 1) for s in X] + [(s, -1) for s in Y])
     return UniversalVertexAlgebra(R, E, opes, conformal_vector=conformal_vector,
                                   degrees=degrees,
                                   horizontal_grading=horizontal_grading, horizontal_grading_group=horizontal_grading_group,
@@ -233,7 +234,7 @@ def BosonicGhosts(base_ring, rank=1, beta_weight=None, names=None,
       :class:`universal_vertex_algebra.UniversalVertexAlgebra`
     - ``horizontal_grading`` -- (default: ``None``) as for
       :class:`universal_vertex_algebra.UniversalVertexAlgebra`, or
-      ``'charge'``: ``γ_i`` of charge 1, ``β_i`` of charge -1 (needed for
+      ``'charge'``: ``β_i`` of charge 1, ``γ_i`` of charge -1 (needed for
       finite weight spaces with ``'b1c0'`` or ``'b0c1'``)
     - ``horizontal_grading_group``, ``implementation`` -- (default:
       ``None``) as for
@@ -342,7 +343,7 @@ def BosonicGhosts(base_ring, rank=1, beta_weight=None, names=None,
         ....:  for l in (0, 1/2, 1, 2)]
         [[1, 1, 3, 6, 12, 21], [1, 1, 3, 6, 12, 21], [1, 1, 3, 6, 12, 21], [1, 1, 3, 6, 12, 21]]
         sage: BosonicGhosts(QQ, horizontal_grading='charge', beta_weight=1).gen('beta').horizontal_grade()
-        -1
+        1
         sage: TestSuite(BosonicGhosts(QQ, beta_weight=1, horizontal_grading='charge')).run()
 
     Refusals::
@@ -383,7 +384,7 @@ def FermionicGhosts(base_ring, rank=1, b_weight=None, names=None,
       :class:`universal_vertex_algebra.UniversalVertexAlgebra`
     - ``horizontal_grading`` -- (default: ``None``) as for
       :class:`universal_vertex_algebra.UniversalVertexAlgebra`, or
-      ``'charge'``: the ghost number (``c_i`` 1, ``b_i`` -1)
+      ``'charge'``: ``b_i`` of charge 1, ``c_i`` of charge -1
     - ``horizontal_grading_group``, ``implementation`` -- (default:
       ``None``) as for
       :class:`universal_vertex_algebra.UniversalVertexAlgebra`
@@ -399,7 +400,7 @@ def FermionicGhosts(base_ring, rank=1, b_weight=None, names=None,
         sage: b.ope(c), c.ope(b), b.ope(b), V.central_charge()
         ([1], [1], [], -26)
         sage: V.degrees(), c.horizontal_grade()
-        ({'b': 2, 'c': -1}, 1)
+        ({'b': 2, 'c': -1}, -1)
         sage: V.character(6, horizontal_grade=0)          # 1/(q)_∞, as for any b_weight
         1 + q + 2*q^2 + 3*q^3 + 5*q^4 + 7*q^5 + O(q^6)
         sage: FermionicGhosts(QQ, conformal_vector='b1c0') is FermionicGhosts(QQ, b_weight=1)

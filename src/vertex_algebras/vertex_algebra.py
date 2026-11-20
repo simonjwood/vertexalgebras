@@ -2077,13 +2077,13 @@ class VertexAlgebraElement(IndexedFreeModuleElement):
 
         EXAMPLES:
 
-        The ghost number of the ``beta gamma`` system::
+        The charge of the ``beta gamma`` system::
 
             sage: import vertex_algebras as va
             sage: V = va.BosonicGhosts(QQ, horizontal_grading='charge')
             sage: b, g = V.gens()
             sage: b.horizontal_grade(), g.horizontal_grade(), b.no(g).no(g).horizontal_grade()
-            (-1, 1, 1)
+            (1, -1, -1)
         """
         return self.parent().horizontal_grade(self)
 
@@ -4529,7 +4529,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: from vertex_algebras import BosonicGhosts
             sage: B = BosonicGhosts(QQ, horizontal_grading='charge')
             sage: B.horizontal_grading(), B.horizontal_grading_group()
-            ({'beta': -1, 'gamma': 1}, Integer Ring)
+            ({'beta': 1, 'gamma': -1}, Integer Ring)
             sage: BosonicGhosts(QQ).horizontal_grading() is None
             True
         """
@@ -4578,7 +4578,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: import vertex_algebras as va
             sage: B = va.BosonicGhosts(QQ, horizontal_grading='charge')
             sage: B._require_grading()['g']
-            [(-1,), (1,)]
+            [(1,), (-1,)]
             sage: va.BosonicGhosts(QQ)._require_grading()
             Traceback (most recent call last):
             ...
@@ -4618,7 +4618,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: V = va.BosonicGhosts(QQ, horizontal_grading='charge')
             sage: b, g = V.gens()
             sage: V.horizontal_grade(g.no(g)), V.horizontal_grade(V.one())
-            (2, 0)
+            (-2, 0)
 
         TESTS::
 
@@ -4732,7 +4732,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L'); L = V.gen('L'); a = ((0, 0),)
             sage: B = va.BosonicGhosts(QQ, horizontal_grading='charge')
             sage: B._grade_key(((1, 0),)), B._grade_key(((0, 0), (1, 0))), B._grade_key(())
-            ((1,), (0,), (0,))
+            ((-1,), (0,), (0,))
             sage: VertexAlgebra._grade_key(V, a)
             Traceback (most recent call last):
             ...
