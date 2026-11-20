@@ -6,7 +6,9 @@
 # n-th products for a range of n.  Rings: QQ, Frac(QQ[c, h]) and W_3 over
 # Q(c) (lifted), Q(k) (affine sl_2, a doublet top: zero-mode matrices), a
 # number field; odd generators and half-integer weights (N = 1, βγ at 1/2);
-# a proto universal algebra (the W(2) presentation) with a Jordan-block top;
+# a proto universal algebra (the W(2) presentation) with a Jordan-block top
+# (raw actions without the mode split: with it they differ modulo the
+# relations; the quotients' induced modules with it = Python);
 # induction from degree n (higher Zhu algebras: a lowered top).
 # Also: batches = single calls, results independent of the thread count
 # (dict order too), Ctrl-C (KeyboardInterrupt, then the same results),
@@ -148,14 +150,23 @@ Z2 = P2.zhu_algebra_up_to(8)
 Z0 = matrix(QQ, 2, 2)
 Uj = Z2.module({'T': matrix([[0, 1], [0, 0]]), 'Wp': Z0, 'W0': Z0, 'Wm': Z0}, horizontal_grades=[0, 0])
 Tg, Wpg, W0g, Wmg = F2.gens()
-ok, info = compare(F2, Uj, [raw(Wpg), raw(Wmg), raw(W0g.no(Tg)), raw(Wpg.no(Wmg))], 3)
-report('W(2) presentation (proto), Jordan top', ok, info)
+# without the mode split (_mode_split): the normally ordered product formula
+# as written = the Python recursion, also on a proto algebra
+os.environ['VERTEX_ALGEBRAS_MODE_SPLIT'] = '0'
+try:
+    ok, info = compare(F2, Uj, [raw(Wpg), raw(Wmg), raw(W0g.no(Tg)), raw(Wpg.no(Wmg))], 3)
+finally:
+    del os.environ['VERTEX_ALGEBRAS_MODE_SPLIT']
+report('W(2) presentation (proto), Jordan top, no mode split', ok, info)
+InducedModule(F2, Uj).clear_caches()     # compare's module: its engine (no split) dropped
 dims = {}
 for impl in (None, 'python'):
     Mq = P2.induced_module_up_to(Uj, 8, 4, implementation=impl)
     dims[impl] = [[Mq.weight_space(d, horizontal_grade=g).dimension() for g in (-4, -2, 0, 2, 4)] for d in range(5)]
-report('induced modules of the quotient: engine = Python (W(2), Jordan top, depth 4)',
-       dims[None] == dims['python'], str([sum(r) for r in dims[None]]))
+    if impl is None:
+        split = Mq.ambient()._engine()._split
+report('induced modules of the quotient with the mode split: engine = Python (W(2), Jordan top, depth 4)',
+       split and dims[None] == dims['python'], str([sum(r) for r in dims[None]]))
 
 # 4b. induction from degree n (higher Zhu algebras): a lowered top
 from vertex_algebras.higher_zhu_algebra import HigherInducedModule

@@ -6,7 +6,9 @@
 // coefficients, threads and all the rest from EngineCore (_engine_base.hpp).
 // No Python objects in here: the Cython wrapper _module_engine.pyx converts
 // at the boundary.  The recursions are those of InducedModule (_gen_act,
-// _commutator_on) and _GeneratorActions (_action_key), line by line.
+// _commutator_on) and _GeneratorActions (_action_key), line by line, except
+// that the raising modes of a word's first letter act last when the products
+// x_(i) B are given (set_splits, word_act_compute).
 //
 // Rational quantities are scaled by D (the common denominator of the
 // generators' conformal weights h_i): h2[i] = D h_i, a physics mode m is

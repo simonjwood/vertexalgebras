@@ -2341,6 +2341,33 @@ class _AdjointByGenerators(_GeneratorActions, AdjointModule):
 _NOT_BUILT = object()
 
 
+def _mode_split():
+    r"""
+    Whether a new :class:`_InducedModuleEngine` lets the raising modes
+    `x_{(j)}` of a word `:x B:` act after `B` (default), by the
+    commutator formula with the products `x_{(i)} B` of `V`; else the
+    normally ordered product formula as written, whose raising `x_{(j)}`
+    visit keys up to `\mathrm{wt}\, x - 1` levels deeper than the result
+    (W(2,3): more than 99% of the cached keys, 7x the terms at depth 5).
+
+    The environment variable ``VERTEX_ALGEBRAS_MODE_SPLIT=0`` switches it
+    off (read when an engine is built).  For a vertex algebra both give the
+    same actions; for a proto vertex algebra (a presentation's ambient,
+    where the Jacobi identity holds modulo the relations) the actions
+    differ modulo the relations, and the induced modules of the quotient
+    are the same.
+
+    EXAMPLES::
+
+        sage: import os
+        sage: from vertex_algebras.vertex_algebra_module import _mode_split
+        sage: _mode_split() == (os.environ.get('VERTEX_ALGEBRAS_MODE_SPLIT', '1') != '0')
+        True
+    """
+    import os
+    return os.environ.get('VERTEX_ALGEBRAS_MODE_SPLIT', '1') != '0'
+
+
 class _InducedModuleEngine:
     r"""
     The C++ engine (``_module_engine``) of an :class:`InducedModule` with a
@@ -2464,6 +2491,29 @@ class _InducedModuleEngine:
             sage: M = V.verma_module(1/16); E = M._engine()
             sage: E is None or (E._D, E._top, E._F is QQ) == (1, [0], True)
             True
+
+        With and without the mode split (``_mode_split``): the same actions
+        of the words of a vertex algebra (the gain is in the keys visited for
+        generators of large weight, W(2,3); for Virasoro they are about the
+        same)::
+
+            sage: import os
+            sage: from vertex_algebras.vertex_algebra import _compiled_module
+            sage: from vertex_algebras.vertex_algebra_module import _InducedModuleEngine
+            sage: mod, _ = _compiled_module('_module_engine')
+            sage: L = M._V.gen('L'); w = dict(L.no(L.no(L)).derivative()._monomial_coefficients)
+            sage: def engine(split):
+            ....:     os.environ['VERTEX_ALGEBRAS_MODE_SPLIT'] = split
+            ....:     try:
+            ....:         return _InducedModuleEngine(M, M._V._engine(), mod)
+            ....:     finally:
+            ....:         del os.environ['VERTEX_ALGEBRAS_MODE_SPLIT']
+            sage: if E is not None:
+            ....:     E1, E0 = engine('1'), engine('0')
+            ....:     v = {(((0, -3), (0, -2)), 0): 1}
+            ....:     T = [(0, n, 0) for n in range(-2, 9)]
+            ....:     r1, r0 = E1.act_many([w], [v], T, 1), E0.act_many([w], [v], T, 1)
+            ....:     assert (E1._split, E0._split) == (True, False) and r1 == r0 and any(r1)
         """
         V = M._V
         G = len(M._h)
@@ -2506,13 +2556,12 @@ class _InducedModuleEngine:
                 for d in poles:
                     words.update(d)
                 E.set_ope(i, j, [K._el_up(d) for d in poles])
-        # PROTOTYPE (branch module-engine-mode-order): the raising modes of a
-        # word's first letter act last (set_splits), with the products of V
+        # the raising modes of a word's first letter act last (the engine's
+        # set_splits, with the products x_(i) B of V: _ensure_splits)
         self._V = V
         self._h = list(M._h)
         self._split_done = set()
-        import os
-        self._split = os.environ.get('VERTEX_ALGEBRAS_MODE_SPLIT') == '1'
+        self._split = _mode_split()
         if self._split:
             self._ensure_splits(words)
 
