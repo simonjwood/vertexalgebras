@@ -16,7 +16,7 @@ import vertex_algebras
 
 project = 'vertex_algebras'
 author = 'Christopher Raymond, Simon Wood'
-copyright = '2026, Cardiff University'
+copyright = '2026, Cardiff University and University of Hamburg'
 release = vertex_algebras.__version__
 version = release
 
