@@ -33,7 +33,7 @@ The version check, and the version of the package::
     sage: vertex_algebras._sage_version_ok('10.8')
     False
     sage: vertex_algebras.__version__
-    '0.1.0a2'
+    '0.1.0a3'
 
 AUTHORS:
 
