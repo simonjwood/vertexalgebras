@@ -4,6 +4,22 @@
 Vertex algebras for SageMath
 ============================
 
+This is the reference manual of ``sage-vertex-algebras``: one page per
+module, generated from the docstrings, with examples for every class and
+method.
+
+**New to the package?** Start with the `example notebooks
+<https://github.com/simonjwood/vertexalgebras/tree/main/examples>`_. They
+introduce it through worked examples, in reading order, from
+``01_getting_started`` to research examples (singular vectors in affine
+vertex algebras, the triplet algebras, Virasoro fusion at `c = 0`). The
+`index of the notebooks
+<https://github.com/simonjwood/vertexalgebras/blob/main/examples/README.md>`_
+says what each one covers and which notebooks it assumes.
+
+For installation and requirements, see the `README
+<https://github.com/simonjwood/vertexalgebras#readme>`_.
+
 .. automodule:: vertex_algebras
    :no-members:
 

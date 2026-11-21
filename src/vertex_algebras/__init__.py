@@ -19,9 +19,13 @@ EXAMPLES::
     sage: L = V.gen('L'); L.ope(L)
     [dL, 2*L, 0, 1/4]
 
-The package needs SageMath (version 10.9 or later), checked here: Sage is
-not a declared pip dependency, since no pip name covers every Sage
-installation::
+The package needs SageMath (version 10.9 or later), checked when it is
+imported: Sage is not a declared pip dependency, since no pip name covers
+every Sage installation.
+
+TESTS:
+
+The version check, and the version of the package::
 
     sage: import vertex_algebras
     sage: vertex_algebras._sage_version_ok('10.9'), vertex_algebras._sage_version_ok('10.10.beta3')
