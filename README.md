@@ -245,8 +245,10 @@ whole session; results do not depend on it.
 ## Acknowledgements
 
 The library started as a port of K. Thielemans' Mathematica package
-OPEdefs [Thi1991]; K. Thielemans kindly agreed to its publication under an
-open-source licence.
+OPEdefs [Thi1991]: its computation of the OPEs of composite fields follows
+the algorithms of OPEdefs, described in [Thi1991] and in K. Thielemans'
+thesis [Thi1995]. OPEdefs itself is not included. SW thanks K. Thielemans
+for a kind and helpful exchange about OPEdefs.
 
 CR and SW thank Sven Möller and David Ridout for helpful discussions.
 
@@ -429,6 +431,9 @@ vectors are enumerated with [PARI](https://pari.math.u-bordeaux.fr).
 - [Thi1991] K. Thielemans, *A Mathematica package for computing operator
   product expansions*, Internat. J. Modern Phys. C 2 (1991), 787–798,
   [doi:10.1142/S0129183191001001](https://doi.org/10.1142/S0129183191001001).
+- [Thi1995] K. Thielemans, *An algorithmic approach to operator product
+  expansions, W-algebras and W-strings*, PhD thesis, KU Leuven (1995),
+  [arXiv:hep-th/9506159](https://arxiv.org/abs/hep-th/9506159).
 - [Wei1994] C. A. Weibel, *An introduction to homological algebra*,
   Cambridge Stud. Adv. Math. 38, Cambridge University Press (1994),
   [doi:10.1017/CBO9781139644136](https://doi.org/10.1017/CBO9781139644136).
