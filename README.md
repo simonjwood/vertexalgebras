@@ -2,7 +2,7 @@
 
 Vertex algebras and vertex superalgebras for [SageMath](https://www.sagemath.org).
 
-**Status:** preview release (version 0.1.0a1). The interface may still
+**Status:** preview release (version 0.1.0a2). The interface may still
 change.
 
 ## What it does
