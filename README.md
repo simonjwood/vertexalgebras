@@ -312,9 +312,11 @@ vectors are enumerated with [PARI](https://pari.math.u-bordeaux.fr).
 
 - [Ara2005] T. Arakawa, *Representation theory of superconformal algebras
   and the Kac–Roan–Wakimoto conjecture*, Duke Math. J. 130 (2005), 435–478,
-  [arXiv:math-ph/0405015](https://arxiv.org/abs/math-ph/0405015).
+  [arXiv:math-ph/0405015](https://arxiv.org/abs/math-ph/0405015),
+  [doi:10.1215/S0012-7094-05-13032-0](https://doi.org/10.1215/S0012-7094-05-13032-0).
 - [Ara2007] T. Arakawa, *Representation theory of W-algebras*, Invent.
-  Math. 169 (2007), 219–320, [arXiv:math/0506056](https://arxiv.org/abs/math/0506056).
+  Math. 169 (2007), 219–320, [arXiv:math/0506056](https://arxiv.org/abs/math/0506056),
+  [doi:10.1007/s00222-007-0046-1](https://doi.org/10.1007/s00222-007-0046-1).
 - [Ben1991] D. J. Benson, *Representations and cohomology I*, Cambridge
   Stud. Adv. Math. 30, Cambridge University Press (1991),
   [doi:10.1017/CBO9780511623615](https://doi.org/10.1017/CBO9780511623615).
@@ -327,7 +329,8 @@ vectors are enumerated with [PARI](https://pari.math.u-bordeaux.fr).
   [doi:10.1016/0550-3213(91)90624-7](https://doi.org/10.1016/0550-3213(91)90624-7).
 - [BVY2019] K. Barron, N. Vander Werf, J. Yang, *Higher level Zhu algebras
   and modules for vertex operator algebras*, J. Pure Appl. Algebra 223
-  (2019), 3295–3317, [arXiv:1710.04767](https://arxiv.org/abs/1710.04767).
+  (2019), 3295–3317, [arXiv:1710.04767](https://arxiv.org/abs/1710.04767),
+  [doi:10.1016/j.jpaa.2018.11.002](https://doi.org/10.1016/j.jpaa.2018.11.002).
 - [CM1993] D. H. Collingwood, W. M. McGovern, *Nilpotent orbits in
   semisimple Lie algebras*, Van Nostrand Reinhold (1993); CRC Press
   (2017), [doi:10.1201/9780203745809](https://doi.org/10.1201/9780203745809).
@@ -342,16 +345,20 @@ vectors are enumerated with [PARI](https://pari.math.u-bordeaux.fr).
   [doi:10.1007/978-1-4612-0353-7](https://doi.org/10.1007/978-1-4612-0353-7).
 - [DLM1997] C. Dong, H. Li, G. Mason, *Regularity of rational vertex
   operator algebras*, Adv. Math. 132 (1997), 148–166,
-  [arXiv:q-alg/9508018](https://arxiv.org/abs/q-alg/9508018).
+  [arXiv:q-alg/9508018](https://arxiv.org/abs/q-alg/9508018),
+  [doi:10.1006/aima.1997.1681](https://doi.org/10.1006/aima.1997.1681).
 - [DLM1998] C. Dong, H. Li, G. Mason, *Vertex operator algebras and
   associative algebras*, J. Algebra 206 (1998), 67–96,
-  [arXiv:q-alg/9612010](https://arxiv.org/abs/q-alg/9612010).
+  [arXiv:q-alg/9612010](https://arxiv.org/abs/q-alg/9612010),
+  [doi:10.1006/jabr.1998.7425](https://doi.org/10.1006/jabr.1998.7425).
 - [DSK2005] A. De Sole, V. G. Kac, *Freely generated vertex algebras and
   non-linear Lie conformal algebras*, Comm. Math. Phys. 254 (2005),
-  659–694, [arXiv:math-ph/0312042](https://arxiv.org/abs/math-ph/0312042).
+  659–694, [arXiv:math-ph/0312042](https://arxiv.org/abs/math-ph/0312042),
+  [doi:10.1007/s00220-004-1245-x](https://doi.org/10.1007/s00220-004-1245-x).
 - [DSK2006] A. De Sole, V. G. Kac, *Finite vs affine W-algebras*, Jpn. J.
   Math. 1 (2006), 137–261,
-  [arXiv:math-ph/0511055](https://arxiv.org/abs/math-ph/0511055).
+  [arXiv:math-ph/0511055](https://arxiv.org/abs/math-ph/0511055),
+  [doi:10.1007/s11537-006-0505-2](https://doi.org/10.1007/s11537-006-0505-2).
 - [FP1985] U. Fincke, M. Pohst, *Improved methods for calculating vectors
   of short length in a lattice, including a complexity analysis*, Math.
   Comp. 44 (1985), 463–471,
@@ -364,10 +371,12 @@ vectors are enumerated with [PARI](https://pari.math.u-bordeaux.fr).
   [doi:10.1215/S0012-7094-92-06604-X](https://doi.org/10.1215/S0012-7094-92-06604-X).
 - [GK1996] M. R. Gaberdiel, H. G. Kausch, *Indecomposable fusion
   products*, Nuclear Phys. B 477 (1996), 293–318,
-  [arXiv:hep-th/9604026](https://arxiv.org/abs/hep-th/9604026).
+  [arXiv:hep-th/9604026](https://arxiv.org/abs/hep-th/9604026),
+  [doi:10.1016/0550-3213(96)00364-1](https://doi.org/10.1016/0550-3213(96)00364-1).
 - [He2017] X. He, *Higher level Zhu algebras are subquotients of universal
   enveloping algebras*, J. Algebra 491 (2017), 265–279,
-  [arXiv:1712.05671](https://arxiv.org/abs/1712.05671).
+  [arXiv:1712.05671](https://arxiv.org/abs/1712.05671),
+  [doi:10.1016/j.jalgebra.2017.08.014](https://doi.org/10.1016/j.jalgebra.2017.08.014).
 - [Kac1977] V. G. Kac, *Lie superalgebras*, Adv. Math. 26 (1977), 8–96,
   [doi:10.1016/0001-8708(77)90017-2](https://doi.org/10.1016/0001-8708(77)90017-2).
 - [Kac1998] V. G. Kac, *Vertex algebras for beginners*, 2nd ed., Univ.
@@ -375,38 +384,48 @@ vectors are enumerated with [PARI](https://pari.math.u-bordeaux.fr).
   [doi:10.1090/ulect/010](https://doi.org/10.1090/ulect/010).
 - [KK2023] R. A. Kozlov, P. S. Kolesnikov, *The Gröbner–Shirshov bases
   method for vertex algebras*, J. Math. Sci. 296 (2026), 217–230,
-  [arXiv:2312.01670](https://arxiv.org/abs/2312.01670).
+  [arXiv:2312.01670](https://arxiv.org/abs/2312.01670),
+  [doi:10.1007/s10958-026-08246-0](https://doi.org/10.1007/s10958-026-08246-0).
 - [KR2019] S. Kanade, D. Ridout, *NGK and HLZ: fusion for physicists and
   mathematicians*, in: Affine, vertex and W-algebras, Springer INdAM Ser.
-  37 (2019), 135–181, [arXiv:1812.10713](https://arxiv.org/abs/1812.10713).
+  37 (2019), 135–181, [arXiv:1812.10713](https://arxiv.org/abs/1812.10713),
+  [doi:10.1007/978-3-030-32906-8_7](https://doi.org/10.1007/978-3-030-32906-8_7).
 - [KRW2003] V. G. Kac, S.-S. Roan, M. Wakimoto, *Quantum reduction for
   affine superalgebras*, Comm. Math. Phys. 241 (2003), 307–342,
-  [arXiv:math-ph/0302015](https://arxiv.org/abs/math-ph/0302015).
+  [arXiv:math-ph/0302015](https://arxiv.org/abs/math-ph/0302015),
+  [doi:10.1007/s00220-003-0926-1](https://doi.org/10.1007/s00220-003-0926-1).
 - [KW1991] H. G. Kausch, G. M. T. Watts, *A study of W-algebras using
   Jacobi identities*, Nuclear Phys. B 354 (1991), 740–768,
   [doi:10.1016/0550-3213(91)90375-8](https://doi.org/10.1016/0550-3213(91)90375-8).
 - [KW1994] V. G. Kac, W. Wang, *Vertex operator superalgebras and their
   representations*, Contemp. Math. 175 (1994), 161–191,
-  [arXiv:hep-th/9312065](https://arxiv.org/abs/hep-th/9312065).
+  [arXiv:hep-th/9312065](https://arxiv.org/abs/hep-th/9312065),
+  [doi:10.1090/conm/175/01843](https://doi.org/10.1090/conm/175/01843).
 - [KW2004] V. G. Kac, M. Wakimoto, *Quantum reduction and representation
-  theory of superconformal algebras*, Adv. Math. 185 (2004), 400–458;
+  theory of superconformal algebras*, Adv. Math. 185 (2004), 400–458,
+  [arXiv:math-ph/0304011](https://arxiv.org/abs/math-ph/0304011),
+  [doi:10.1016/j.aim.2003.12.005](https://doi.org/10.1016/j.aim.2003.12.005);
   corrigendum, Adv. Math. 193 (2005), 453–455,
-  [arXiv:math-ph/0304011](https://arxiv.org/abs/math-ph/0304011).
+  [doi:10.1016/j.aim.2005.01.001](https://doi.org/10.1016/j.aim.2005.01.001).
 - [Li1994] H. Li, *Symmetric invariant bilinear forms on vertex operator
   algebras*, J. Pure Appl. Algebra 96 (1994), 279–297,
   [doi:10.1016/0022-4049(94)90104-X](https://doi.org/10.1016/0022-4049(94)90104-X).
 - [Li1996] H. Li, *Local systems of vertex operators, vertex superalgebras
   and modules*, J. Pure Appl. Algebra 109 (1996), 143–195,
-  [arXiv:hep-th/9406185](https://arxiv.org/abs/hep-th/9406185).
+  [arXiv:hep-th/9406185](https://arxiv.org/abs/hep-th/9406185),
+  [doi:10.1016/0022-4049(95)00079-8](https://doi.org/10.1016/0022-4049(95)00079-8).
 - [Li1997] H. Li, *The physics superselection principle in vertex operator
   algebra theory*, J. Algebra 196 (1997), 436–457,
-  [doi:10.1006/jabr.1997.7126](https://doi.org/10.1006/jabr.1997.7126).
+  [doi:10.1006/jabr.1997.7126](https://doi.org/10.1006/jabr.1997.7126);
+  based on the first part of the preprint [arXiv:q-alg/9504026](https://arxiv.org/abs/q-alg/9504026),
+  whose numbering differs.
 - [LL2004] J. Lepowsky, H. Li, *Introduction to vertex operator algebras
   and their representations*, Progr. Math. 227, Birkhäuser (2004),
   [doi:10.1007/978-0-8176-8186-9](https://doi.org/10.1007/978-0-8176-8186-9).
 - [Nah1994] W. Nahm, *Quasi-rational fusion products*, Internat. J.
   Modern Phys. B 8 (1994), 3693–3702,
-  [arXiv:hep-th/9402039](https://arxiv.org/abs/hep-th/9402039).
+  [arXiv:hep-th/9402039](https://arxiv.org/abs/hep-th/9402039),
+  [doi:10.1142/S0217979294001597](https://doi.org/10.1142/S0217979294001597).
 - [Thi1991] K. Thielemans, *A Mathematica package for computing operator
   product expansions*, Internat. J. Modern Phys. C 2 (1991), 787–798,
   [doi:10.1142/S0129183191001001](https://doi.org/10.1142/S0129183191001001).
@@ -423,7 +442,8 @@ vectors are enumerated with [PARI](https://pari.math.u-bordeaux.fr).
 
 ## Authors and licence
 
-Christopher Raymond and Simon Wood. Copyright (C) Cardiff University 2026.
+Christopher Raymond and Simon Wood. Copyright (C) 2026 Cardiff University and
+University of Hamburg.
 
 Licensed under the GNU General Public License, version 2 or later
 (GPL-2.0-or-later); see

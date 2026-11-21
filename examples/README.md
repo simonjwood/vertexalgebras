@@ -493,3 +493,10 @@ Topics that appear in several notebooks; "03 §6" means
 | projective covers, $\operatorname{Ext}^1$, Loewy layers | 11 §§5–6; 15 §§6, 8, 10 |
 | logarithmic modules (Jordan blocks of $L_0$) | 11 §§4, 6; 15; 16 |
 | unique representation, pickling, saving | 02 §9; 04 §10; 05 §8; 08 §10; 12 §7; 14 §§6–7 |
+
+## Authors and licence
+
+The notebooks are by Christopher Raymond and Simon Wood. Copyright (C) 2026
+Cardiff University and University of Hamburg. Licensed under the GNU General
+Public License, version 2 or later (GPL-2.0-or-later), like the package; see
+[LICENSE](../LICENSE).
