@@ -6,6 +6,11 @@ they can be read without running them. To run them, open them in a Jupyter
 session with the SageMath kernel, with the package installed (see the
 [main README](../README.md)).
 
+To save a notebook as a PDF, use Jupyter's "PDF via HTML" export (or print
+from the browser). The "PDF via LaTeX" export fails on the notebooks'
+Markdown tables with pandoc 3, and its default fonts drop the Greek letters
+and box-drawing characters that the notebooks use.
+
 This file first describes how the notebooks are organised, then gives a
 quick reference to the contents of each one, and ends with an index of
 topics that appear in several notebooks.

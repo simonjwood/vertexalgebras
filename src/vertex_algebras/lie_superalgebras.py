@@ -1024,8 +1024,8 @@ def _named(name, a=None):
         kind, m, n = mt.group(1), int(mt.group(2)), int(mt.group(3))
         if kind == 'sl':
             if m < 2:
-                raise ValueError('sl(m|n) has θ in sl_m, so m >= 2 (write sl({}|{}) '
-                                 'for θ in sl_{})'.format(n, m, n))
+                raise ValueError('sl(m|n) has theta in sl_m, so m >= 2 (write sl({}|{}) '
+                                 'for theta in sl_{})'.format(n, m, n))
             if m == n:
                 raise ValueError('sl(m|m) is not simple: use psl(m|m)')
         elif kind == 'psl':
@@ -1033,10 +1033,10 @@ def _named(name, a=None):
                 raise ValueError('psl(m|m) needs m >= 2')
         elif kind == 'osp':
             if m < 4 or n % 2 or (m == 4 and n == 0):
-                raise ValueError('osp(m|n) has θ in so_m: m >= 4, n even (and '
-                                 'so_4 is not simple); use spo(n|m) for θ in sp_n')
+                raise ValueError('osp(m|n) has theta in so_m: m >= 4, n even (and '
+                                 'so_4 is not simple); use spo(n|m) for theta in sp_n')
         elif m < 2 or m % 2:
-            raise ValueError('spo(n|m) has θ in sp_n: n >= 2 even')
+            raise ValueError('spo(n|m) has theta in sp_n: n >= 2 even')
         if kind == 'osp' and m <= 2:
             raise ValueError('osp(m|n) needs m >= 4')
         A, odd, theta = _classical(kind if kind != 'psl' else 'sl', m, n)
@@ -1214,7 +1214,7 @@ class LieSuperalgebra(_ArtFromRepr, CombinatorialFreeModule):
         sage: LieSuperalgebra(QQ, 'osp(3|2)')
         Traceback (most recent call last):
         ...
-        ValueError: osp(m|n) has θ in so_m: m >= 4, n even (and so_4 is not simple); use spo(n|m) for θ in sp_n
+        ValueError: osp(m|n) has theta in so_m: m >= 4, n even (and so_4 is not simple); use spo(n|m) for theta in sp_n
         sage: LieSuperalgebra(QQ, matrix([[2, -1], [-1, 0]]), odd=[2])
         Traceback (most recent call last):
         ...
@@ -1265,10 +1265,10 @@ class LieSuperalgebra(_ArtFromRepr, CombinatorialFreeModule):
         ....:     except ValueError as err:
         ....:         print(err)
         G(3) has two normalisations of the form: give theta='sl2' or theta='G2'
-        sl(m|n) has θ in sl_m, so m >= 2 (write sl(2|1) for θ in sl_2)
+        sl(m|n) has theta in sl_m, so m >= 2 (write sl(2|1) for theta in sl_2)
         sl(m|m) is not simple: use psl(m|m)
         psl(m|m) needs m >= 2
-        D(2,1;a) needs a ≠ 0, -1
+        D(2,1;a) needs a != 0, -1
         the Lie superalgebra of this Cartan matrix is not finite dimensional (roots of height above 100)
         the invariant forms of this Lie superalgebra form a space of dimension 2 (expected 1: is the Cartan matrix indecomposable?)
     """
@@ -1310,7 +1310,7 @@ class LieSuperalgebra(_ArtFromRepr, CombinatorialFreeModule):
             if name == 'D(2,1;a)':
                 a = R(a)
                 if a == 0 or a == -1:
-                    raise ValueError('D(2,1;a) needs a ≠ 0, -1')
+                    raise ValueError('D(2,1;a) needs a != 0, -1')
                 name = ('D(2,1;a)', a)
             A = matrix(R, A)
         else:
@@ -1382,7 +1382,7 @@ class LieSuperalgebra(_ArtFromRepr, CombinatorialFreeModule):
         self._theta = self._resolve_theta(theta)
         tt = self._root_norm(self._theta, self._form0)
         if not tt:
-            raise ValueError('θ = {} is isotropic'.format(self._theta))
+            raise ValueError('theta = {} is isotropic'.format(self._theta))
         # (θ|θ) is computed through the inverse of the form on h: scaling the
         # form by λ divides it by λ
         self._form = (tt / 2) * self._form0
@@ -1535,7 +1535,7 @@ class LieSuperalgebra(_ArtFromRepr, CombinatorialFreeModule):
         """
         if isinstance(theta, tuple):
             if theta not in self._deg or self._par[self._deg.index(theta)]:
-                raise ValueError('θ = {} is not an even root'.format(theta))
+                raise ValueError('theta = {} is not an even root'.format(theta))
             return theta
         comps = self._components(self._form0)
         if isinstance(theta, str):

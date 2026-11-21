@@ -2106,7 +2106,7 @@ class ZhuAlgebra(_ZhuGrading, CombinatorialFreeModule):
         if n == 0:
             raise NotImplementedError('the Zhu algebra has no generators')
         if not all(h > 0 for h in self._h):
-            raise NotImplementedError('the monomial order of the Gröbner bases '
+            raise NotImplementedError('the monomial order of the Groebner bases '
                                       'needs generators of positive weight')
         R = self.base_ring()
         F = FreeAlgebra(R, n, ['x{}'.format(i) for i in range(n)])
@@ -3649,7 +3649,7 @@ class ZhuAlgebraFreeQuotient(_ZhuGrading, CombinatorialFreeModule):
         D = lcm([QQ(h).denominator() for h in A0._h] + [1])
         degs = [int(D * h) for h in A0._h]
         if any(d <= 0 for d in degs):
-            raise NotImplementedError('the Gröbner bases need generators of positive weight')
+            raise NotImplementedError('the Groebner bases need generators of positive weight')
         self._degs = degs
         rels, top = _free_quotient_relations(Q, W, twist)
         self._relation_dicts = rels
@@ -4666,7 +4666,7 @@ class LatticeZhuAlgebra(_ZhuGrading, CombinatorialFreeModule):
                              'or a conformal vector)'.format(V))
         B = V.gram_matrix()
         n = V.rank()
-        beta = vector(QQ, [_to_rational(x, 'lattice weight coefficient β')
+        beta = vector(QQ, [_to_rational(x, 'lattice weight coefficient beta')
                            for x in data['beta']])
         for i in range(n):
             # Δ(-x_i) = B_ii - Δ(x_i), and Δ(q + p) = Δ(q) + Δ(p) + B(q, p)

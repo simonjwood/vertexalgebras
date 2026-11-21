@@ -1104,14 +1104,14 @@ class FinitelyGeneratedVertexIdeal(VertexAlgebraIdeal):
             mu = _positive_functional(hs, gfree, list(range(len(X))))
             if mu is None:
                 raise NotImplementedError(
-                    'no μ makes h + μ·grade positive on the strong generators '
+                    'no mu makes h + mu*grade positive on the strong generators '
                     '{} of {}'.format([x['el'] for x in X], V))
             self._mu = mu
         elif not self._h_positive:
             raise NotImplementedError(
                 'the strong generators {} of {} do not all have positive '
                 "conformal weight; use grading='ambient' with a grading that "
-                'makes h + μ·grade positive'.format(
+                'makes h + mu*grade positive'.format(
                     [(x['el'], x['h']) for x in X], V))
 
     def _split(self, gens, names):

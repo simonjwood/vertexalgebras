@@ -444,7 +444,7 @@ def euler_poincare_character(V, f, weight, prec, x=None):
         ....:                          'minimal', [0, 0, 0], 2)
         Traceback (most recent call last):
         ...
-        NotImplementedError: the even roots of g_0 make the specialisation to q singular: the character needs the variables of h ∩ g^f
+        NotImplementedError: the even roots of g_0 make the specialisation to q singular: the character needs the variables of the intersection of h and g^f
     """
     from sage.rings.power_series_ring import PowerSeriesRing
     from sage.rings.puiseux_series_ring import PuiseuxSeriesRing
@@ -455,7 +455,8 @@ def euler_poincare_character(V, f, weight, prec, x=None):
         terms = [(D.weight(weight), 1)]
     if any(v == 0 and not D.parity[b] for b, v in D.x_value.items()):
         raise NotImplementedError('the even roots of g_0 make the specialisation to q '
-                                  'singular: the character needs the variables of h ∩ g^f')
+                                  'singular: the character needs the variables of the '
+                                  'intersection of h and g^f')
     prec = QQ(prec)
     tops = []
     for lam, c in terms:
@@ -546,7 +547,8 @@ def reduce_module(M, f, x=None, reduction='+', names=None):
     if not D.scalar_top():
         raise NotImplementedError('the Verma modules of {} have infinite top levels (a '
                                   'generator of integer weight with nonzero weight under '
-                                  'h ∩ g^f): not implemented yet'.format(D.W))
+                                  'the intersection of h and g^f): not implemented '
+                                  'yet'.format(D.W))
     lam = D.weight(U.highest_weight())
     if simple and not _reduction_is_nonzero(D, lam, reduction):
         return ZeroModule(D.WT)
@@ -570,7 +572,7 @@ def _check_borel(D, U):
         sage: _check_borel(D, V.zhu_algebra().verma_module({'alphacheck[1]': 0}, functional=[-1]))
         Traceback (most recent call last):
         ...
-        NotImplementedError: the Verma module is not highest weight for the positive roots Δ_{0,+} ⊔ Δ_{>0} of the reduction
+        NotImplementedError: the Verma module is not highest weight for the positive roots Delta_{0,+} and Delta_{>0} of the reduction
     """
     for z, grade in enumerate(U._g):
         beta = tuple(ZZ(c) for c in grade)
@@ -578,7 +580,7 @@ def _check_borel(D, U):
             continue
         if beta not in D.x_value or (z in U._raising) != D._is_positive(beta):
             raise NotImplementedError('the Verma module is not highest weight for the '
-                                      'positive roots Δ_{0,+} ⊔ Δ_{>0} of the reduction')
+                                      'positive roots Delta_{0,+} and Delta_{>0} of the reduction')
 
 
 def _reduction_is_nonzero(D, lam, reduction):
@@ -603,7 +605,7 @@ def _reduction_is_nonzero(D, lam, reduction):
         sage: _reduction_is_nonzero(D3, D3.weight([0, 0]), '+')
         Traceback (most recent call last):
         ...
-        NotImplementedError: H(L(λ)) for the principal '+' reduction is known under the condition (385) of [Ara2007] only (e.g. an irrational level)
+        NotImplementedError: H(L(lambda)) for the principal '+' reduction is known under the condition (385) of [Ara2007] only (e.g. an irrational level)
     """
     g = D.g
     if reduction == '-':
@@ -623,10 +625,10 @@ def _reduction_is_nonzero(D, lam, reduction):
             for n in range(1, sum(b) + 1):
                 v = 2 * (-D.ip(lam + D.rho, vb) + n * D.kappa) / D.ip(vb, vb)
                 if _is_integer(v):
-                    raise NotImplementedError("H(L(λ)) for the principal '+' reduction is "
+                    raise NotImplementedError("H(L(lambda)) for the principal '+' reduction is "
                                               "known under the condition (385) of [Ara2007] "
                                               "only (e.g. an irrational level)")
         return True
-    raise NotImplementedError("H(L(λ)) is implemented for the minimal nilpotent ('+'), the "
+    raise NotImplementedError("H(L(lambda)) is implemented for the minimal nilpotent ('+'), the "
                               "principal nilpotent of a Lie algebra ('+' under (385), '-') "
                               "with the Dynkin grading")

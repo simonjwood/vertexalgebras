@@ -1194,7 +1194,7 @@ class LatticeVertexAlgebra(VertexAlgebra):
                 if E[i][j] != want * E[j][i]:
                     warnings.warn(
                         'LatticeVertexAlgebra: the cocycle violates '
-                        'ε(x_%d,x_%d)/ε(x_%d,x_%d) = (-1)^(B_ij + B_ii B_jj); '
+                        'eps(x_%d,x_%d)/eps(x_%d,x_%d) = (-1)^(B_ij + B_ii B_jj); '
                         'the algebra is not local' % (i, j, j, i),
                         RuntimeWarning, stacklevel=4)
                     return
@@ -1529,7 +1529,7 @@ class LatticeVertexAlgebra(VertexAlgebra):
             sage: from vertex_algebras.lattice_vertex_algebra import LatticeVertexAlgebra
             sage: L = LatticeVertexAlgebra(QQ, matrix([[2]]))
             sage: M = L.simple_module([1/2]); M
-            Module V_(λ+L), λ = (1/2), over Lattice vertex algebra of rank 1 with Gram matrix [2] over Rational Field
+            Module V_(lambda+L), lambda = (1/2), over Lattice vertex algebra of rank 1 with Gram matrix [2] over Rational Field
             sage: L.e((1,)).ope(M.highest_weight_vector())
             []
         """
@@ -2385,7 +2385,7 @@ class LatticeVertexAlgebra(VertexAlgebra):
             sage: L.with_conformal_vector(J0.no(J0) / 4)
             Traceback (most recent call last):
             ...
-            ValueError: T_(0) J1 = ... is not ∂J1: T does not act as the translation operator on J1
+            ValueError: T_(0) J1 = ... is not the derivative of J1: T does not act as the translation operator on J1
             sage: LT = L.with_conformal_vector(Tsug + L.e((1, 1)).derivative())
             doctest:warning...
             ...LogarithmicWarning: L_0 = T_(1) is not diagonalizable ...

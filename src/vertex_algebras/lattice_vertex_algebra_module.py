@@ -38,7 +38,7 @@ The ``sl_2`` lattice ``A_1`` (``B = (2)``): two simple modules, ``V_L`` and
     sage: L0 = LatticeVertexAlgebra(QQ, matrix([[2]])); J = L0.J(0)
     sage: V = L0.with_conformal_vector(J.no(J) / 4)
     sage: M0, M1 = V.simple_modules(); M1
-    Module V_(λ+L), λ = (1/2), over Lattice vertex algebra of rank 1 with Gram matrix [2] over Rational Field
+    Module V_(lambda+L), lambda = (1/2), over Lattice vertex algebra of rank 1 with Gram matrix [2] over Rational Field
     sage: M1.weight_space(1/4).basis()
     [e^(-1/2), e^(1/2)]
     sage: M1.character(5)
@@ -81,7 +81,7 @@ def _canonical_coset(V, lam):
         sage: _canonical_coset(V, [1/3])
         Traceback (most recent call last):
         ...
-        ValueError: (1/3,) is not in the dual lattice (B λ must be integral)
+        ValueError: (1/3,) is not in the dual lattice (B lambda must be integral)
     """
     n = V.rank()
     try:
@@ -89,10 +89,10 @@ def _canonical_coset(V, lam):
     except (TypeError, ValueError):
         raise ValueError('{!r} is not a vector of rationals'.format(lam))
     if len(lam) != n:
-        raise ValueError('λ must have {} coordinates (in the basis of the lattice)'
+        raise ValueError('lambda must have {} coordinates (in the basis of the lattice)'
                          .format(n))
     if any(x not in ZZ for x in V.gram_matrix().change_ring(QQ) * lam):
-        raise ValueError('{} is not in the dual lattice (B λ must be integral)'
+        raise ValueError('{} is not in the dual lattice (B lambda must be integral)'
                          .format(tuple(lam)))
     return tuple(x - x.floor() for x in lam)
 
@@ -360,13 +360,13 @@ class LatticeVertexAlgebraModule(VertexAlgebraModule):
         sage: V.simple_module([1/2])
         Traceback (most recent call last):
         ...
-        ValueError: (1/2,) is not in the dual lattice (B λ must be integral)
+        ValueError: (1/2,) is not in the dual lattice (B lambda must be integral)
         sage: loads(dumps(M)) is M
         True
         sage: V.simple_module([1/3, 0])
         Traceback (most recent call last):
         ...
-        ValueError: λ must have 1 coordinates (in the basis of the lattice)
+        ValueError: lambda must have 1 coordinates (in the basis of the lattice)
         sage: V.simple_module(['x'])
         Traceback (most recent call last):
         ...
@@ -444,7 +444,7 @@ class LatticeVertexAlgebraModule(VertexAlgebraModule):
         sage: VA.simple_module([1/2]).horizontal_grading_group()
         Traceback (most recent call last):
         ...
-        ValueError: Module V_(λ+L), λ = (1/2), ... is not graded by an abelian group
+        ValueError: Module V_(lambda+L), lambda = (1/2), ... is not graded by an abelian group
 
     A ``Z/3`` grading of ``A_2`` (``e^q`` of grade ``q_0 + 2 q_1``): the
     pushout has order ``|A| |L°/L| = 9``, shared by the three modules, and
@@ -513,9 +513,9 @@ class LatticeVertexAlgebraModule(VertexAlgebraModule):
             sage: L0 = va.Lattice(QQ, matrix([[2]])); J = L0.J(0)
             sage: V = L0.with_conformal_vector(J.no(J) / 4); M = V.simple_module([1/2])
             sage: repr(M)
-            'Module V_(λ+L), λ = (1/2), over Lattice vertex algebra of rank 1 with Gram matrix [2] over Rational Field'
+            'Module V_(lambda+L), lambda = (1/2), over Lattice vertex algebra of rank 1 with Gram matrix [2] over Rational Field'
         """
-        return 'Module V_(λ+L), λ = ({}), over {}'.format(
+        return 'Module V_(lambda+L), lambda = ({}), over {}'.format(
             ', '.join(str(x) for x in self._lam), self._V)
 
     def coset_representative(self):

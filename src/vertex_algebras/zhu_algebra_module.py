@@ -292,7 +292,7 @@ class ZhuAlgebraModule(_ArtFromRepr, CombinatorialFreeModule):
         ....:           'F': matrix([[0, 0], [1, 0]])}, horizontal_grades=[(1,), (1,)])
         Traceback (most recent call last):
         ...
-        ValueError: the matrix of [E] maps a vector of grade (1) to one of grade (1), not (1) + ι(grade of E) = (3)
+        ValueError: the matrix of [E] maps a vector of grade (1) to one of grade (1), not (1) + iota(grade of E) = (3)
 
     TESTS::
 
@@ -578,7 +578,7 @@ class ZhuAlgebraModule(_ArtFromRepr, CombinatorialFreeModule):
             sage: U._install_grading(U.horizontal_grading_group(), [(1,), (1,)], matrix(QQ, [[2]]))
             Traceback (most recent call last):
             ...
-            ValueError: the matrix of [E] maps a vector of grade (1) to one of grade (1), not (1) + ι(grade of E) = (3)
+            ValueError: the matrix of [E] maps a vector of grade (1) to one of grade (1), not (1) + iota(grade of E) = (3)
         """
         from ._grading_groups import GradingEmbedding, module_grading_group
         cover = self._cover
@@ -593,7 +593,7 @@ class ZhuAlgebraModule(_ArtFromRepr, CombinatorialFreeModule):
                     if M[r, c] and coords[r] != BG.add(coords[c], shift):
                         raise ValueError(
                             'the matrix of [{}] maps a vector of grade {} to one of grade {}, '
-                            'not {} + ι(grade of {}) = {}'.format(
+                            'not {} + iota(grade of {}) = {}'.format(
                                 cover._names[z], BG.element(coords[c]), BG.element(coords[r]),
                                 BG.element(coords[c]), cover._names[z],
                                 BG.element(BG.add(coords[c], shift))))

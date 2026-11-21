@@ -1550,7 +1550,7 @@ class NormalOrderedSpans:
             sage: G._add_gen(g, 0, 0, 'x', 'test', (1,))
             Traceback (most recent call last):
             ...
-            NotImplementedError: no μ with h + μ·grade > 0 on all strong generators ...
+            NotImplementedError: no mu with h + mu*grade > 0 on all strong generators ...
         """
         from .weight_spaces import _positive_functional
         hs = [g['h'] for g in self._gens] + [h]
@@ -1567,7 +1567,7 @@ class NormalOrderedSpans:
                      for t in self._gen_grades + [G]]
             if _positive_functional(hs, gfree, list(range(len(hs)))) is None:
                 raise NotImplementedError(
-                    'no μ with h + μ·grade > 0 on all strong generators '
+                    'no mu with h + mu*grade > 0 on all strong generators '
                     '(those so far: {}; new: {} = {} of weight {} and grade '
                     '{}): not supported'.format(self.variable_names(), name, x, h,
                                        self._cgrading['group'].element(G)))
@@ -2444,7 +2444,7 @@ class VertexSubalgebra(NormalOrderedSpans, SubspaceVertexAlgebra):
         sage: Bz.subalgebra([Bz.gen('g')], horizontal_grading='ambient')
         Traceback (most recent call last):
         ...
-        NotImplementedError: no μ with h + μ·grade > 0 on all strong generators ...
+        NotImplementedError: no mu with h + mu*grade > 0 on all strong generators ...
 
     Refusals: an inhomogeneous generator, an ambient algebra without
     conformal weights::

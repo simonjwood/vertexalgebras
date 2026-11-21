@@ -3289,7 +3289,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: V.with_conformal_vector(b)
             Traceback (most recent call last):
             ...
-            ValueError: T is not a Virasoro field: T(z)T(w) has poles [] instead of [∂T, 2T, 0, c/2]
+            ValueError: T is not a Virasoro field: T(z)T(w) has poles [] instead of [dT, 2T, 0, c/2]
 
         Lattice vertex algebras, tensor products (``'factors'``) and
         subalgebras (``'ambient'``)::
@@ -4164,7 +4164,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: A._virasoro_data(2 * A.conformal_vector())
             Traceback (most recent call last):
             ...
-            ValueError: T_(0) alpha[1] = 2*dalpha[1] is not ∂alpha[1]: T does not act as the translation operator on alpha[1]
+            ValueError: T_(0) alpha[1] = 2*dalpha[1] is not the derivative of alpha[1]: T does not act as the translation operator on alpha[1]
         """
         gens = self._weight_generators()
         weights, t1s = [], []
@@ -4172,7 +4172,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             x = self.monomial(key)
             t0 = T.nproduct(x, 0)
             if t0 != x.derivative():
-                raise ValueError('T_(0) {} = {} is not ∂{}: T does not act as '
+                raise ValueError('T_(0) {} = {} is not the derivative of {}: T does not act as '
                                  'the translation operator on {}'
                                  .format(label, t0, label, label))
             t1 = T.nproduct(x, 1)
@@ -4264,7 +4264,7 @@ class VertexAlgebra(CombinatorialFreeModule):
         for label, x, h in gens:
             t0 = T.nproduct(x, 0)
             if t0 != x.derivative():
-                raise ValueError('T_(0) {} = {} is not ∂{}: T does not act as '
+                raise ValueError('T_(0) {} = {} is not the derivative of {}: T does not act as '
                                  'the translation operator on {}'
                                  .format(label, t0, label, label))
             y = T.nproduct(x, 1) - h * x
@@ -4337,7 +4337,7 @@ class VertexAlgebra(CombinatorialFreeModule):
             sage: V._verify_virasoro(2 * L)
             Traceback (most recent call last):
             ...
-            ValueError: T is not a Virasoro field: T(z)T(w) has poles [4*dL, 8*L, 0, 1] instead of [∂T, 2T, 0, c/2]
+            ValueError: T is not a Virasoro field: T(z)T(w) has poles [4*dL, 8*L, 0, 1] instead of [dT, 2T, 0, c/2]
             sage: V._verify_virasoro(V.zero())
             Traceback (most recent call last):
             ...
@@ -4353,7 +4353,7 @@ class VertexAlgebra(CombinatorialFreeModule):
               and set(full[3].support()) <= {vac})
         if not ok:
             raise ValueError('T is not a Virasoro field: T(z)T(w) has poles '
-                             '{} instead of [∂T, 2T, 0, c/2]'.format(poles))
+                             '{} instead of [dT, 2T, 0, c/2]'.format(poles))
         return 2 * full[3].coefficient(vac)
 
     def _require_conformal(self):

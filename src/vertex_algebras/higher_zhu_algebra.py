@@ -2953,7 +2953,7 @@ class HigherZhuAlgebraModule(ZhuAlgebraModule):
         sage: A.module({'L_0': 3, 'L_{-1} L_1': 1})
         Traceback (most recent call last):
         ...
-        ValueError: the matrices are not a representation: ρ(x) ρ(y) != ρ(x y) for x = L_{-1} L_1, y = L_{-1} L_1
+        ValueError: the matrices are not a representation: rho(x) rho(y) != rho(x y) for x = L_{-1} L_1, y = L_{-1} L_1
 
     The Lee--Yang model at level 1: the modules of its three blocks::
 
@@ -3149,8 +3149,8 @@ class HigherZhuAlgebraModule(ZhuAlgebraModule):
             for y in words:
                 prod = A._P.apply_word(x, {y: R.one()})
                 if self._rho_word(x) * self._rho_word(y) != self._evaluate(prod):
-                    raise ValueError('the matrices are not a representation: ρ(x) ρ(y) != '
-                                     'ρ(x y) for x = {}, y = {}'.format(A._repr_term(x),
+                    raise ValueError('the matrices are not a representation: rho(x) rho(y) != '
+                                     'rho(x y) for x = {}, y = {}'.format(A._repr_term(x),
                                                                       A._repr_term(y)))
 
     def _install_grading(self, B, horizontal_grades, M):
@@ -3174,7 +3174,7 @@ class HigherZhuAlgebraModule(ZhuAlgebraModule):
             sage: A.module(act, horizontal_grades=[(1,), (1,)])
             Traceback (most recent call last):
             ...
-            ValueError: the matrix of E_0 maps a vector of grade (1) to one of grade (1), not (1) + ι(grade of E_0) = (3)
+            ValueError: the matrix of E_0 maps a vector of grade (1) to one of grade (1), not (1) + iota(grade of E_0) = (3)
         """
         from ._grading_groups import GradingEmbedding, module_grading_group
         A = self._A
@@ -3191,7 +3191,7 @@ class HigherZhuAlgebraModule(ZhuAlgebraModule):
                     if X[r, c] and coords[r] != BG.add(coords[c], shift):
                         raise ValueError(
                             'the matrix of {} maps a vector of grade {} to one of grade {}, '
-                            'not {} + ι(grade of {}) = {}'.format(
+                            'not {} + iota(grade of {}) = {}'.format(
                                 A._repr_term(w), BG.element(coords[c]), BG.element(coords[r]),
                                 BG.element(coords[c]), A._repr_term(w),
                                 BG.element(BG.add(coords[c], shift))))

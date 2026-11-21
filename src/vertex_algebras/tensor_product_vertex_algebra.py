@@ -1717,7 +1717,7 @@ class TensorProductVertexAlgebra(VertexAlgebra):
             sage: V.with_conformal_vector(V.embed(0, J.no(J) / 2))
             Traceback (most recent call last):
             ...
-            ValueError: T_(0) J0 = 0 is not ∂J0: T does not act as the translation operator on J0
+            ValueError: T_(0) J0 = 0 is not the derivative of J0: T does not act as the translation operator on J0
 
         A mixed term whose ``L_0`` stays triangular: ``V_Z ⊗ V_Z`` with
         ``T + ∂(e^1 ⊗ e^-1)`` (the weight spaces are those of ``T``,

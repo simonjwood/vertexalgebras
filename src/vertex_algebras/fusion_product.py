@@ -1589,7 +1589,7 @@ def _lattice_cosets(X):
         sage: _lattice_cosets(M.submodule([M.highest_weight_vector()]))
         Traceback (most recent call last):
         ...
-        NotImplementedError: fusion over a lattice vertex algebra is implemented for the simple modules V_(λ+L) (V.simple_module(λ)), the adjoint module and direct sums of these, not for Submodule ...
+        NotImplementedError: fusion over a lattice vertex algebra is implemented for the simple modules V_(lambda+L) (V.simple_module(lambda)), the adjoint module and direct sums of these, not for Submodule ...
     """
     from .lattice_vertex_algebra_module import LatticeVertexAlgebraModule
     from .vertex_algebra_module import AdjointModule
@@ -1602,7 +1602,7 @@ def _lattice_cosets(X):
         return [c for S in X.summands() for c in _lattice_cosets(S)]
     raise NotImplementedError(
         "fusion over a lattice vertex algebra is implemented for the simple "
-        "modules V_(λ+L) (V.simple_module(λ)), the adjoint module and direct "
+        "modules V_(lambda+L) (V.simple_module(lambda)), the adjoint module and direct "
         "sums of these, not for {}".format(X))
 
 
@@ -1633,7 +1633,7 @@ class LatticeFusionProduct(SageObject):
         sage: V = V.with_conformal_vector((2*J0.no(J0) + J0.no(J1) + J1.no(J0) + 2*J1.no(J1)) / 6)
         sage: V0, V1, V2 = V.simple_modules()
         sage: P = V1.fusion_product(V1); P
-        Fusion product of Module V_(λ+L), λ = (1/3, 2/3), ... and Module V_(λ+L), λ = (1/3, 2/3), ...
+        Fusion product of Module V_(lambda+L), lambda = (1/3, 2/3), ... and Module V_(lambda+L), lambda = (1/3, 2/3), ...
         sage: P.module() is V2, P.is_known_exact()
         (True, True)
         sage: F = P.depth_quotient_up_to(1); F.conformal_weights()
@@ -1642,7 +1642,7 @@ class LatticeFusionProduct(SageObject):
     Direct sums distribute; multiplicities are kept::
 
         sage: S = V1.fusion_product(V1.direct_sum(V2, V2)); S.module()
-        Direct sum of [Module V_(λ+L), λ = (2/3, 1/3), ..., Module V_(λ+L), λ = (0, 0), ..., Module V_(λ+L), λ = (0, 0), ...]
+        Direct sum of [Module V_(lambda+L), lambda = (2/3, 1/3), ..., Module V_(lambda+L), lambda = (0, 0), ..., Module V_(lambda+L), lambda = (0, 0), ...]
         sage: S.depth_quotient_up_to(0).conformal_weights()
         [(0, [1, 1]), (1/3, [1, 1, 1])]
 
@@ -1680,7 +1680,7 @@ class LatticeFusionProduct(SageObject):
     vector)::
 
         sage: Z1 = va.Lattice(QQ, matrix([[1]])); Z1.simple_modules()
-        [Module V_(λ+L), λ = (0), over ...]
+        [Module V_(lambda+L), lambda = (0), over ...]
         sage: H = va.Lattice(QQ, matrix([[0, 3], [3, 0]]))
         sage: M = H.simple_module([1/3, 0]); N = H.simple_module([2/3, 1/3])
         sage: M.fusion_product(N).module().coset_representative()
@@ -1713,7 +1713,7 @@ class LatticeFusionProduct(SageObject):
             sage: import vertex_algebras as va
             sage: V = va.Lattice(QQ, matrix([[2]])); M = V.simple_module([1/2])
             sage: M.fusion_product(M)
-            Fusion product of Module V_(λ+L), λ = (1/2), ... and Module V_(λ+L), λ = (1/2), ...
+            Fusion product of Module V_(lambda+L), lambda = (1/2), ... and Module V_(lambda+L), lambda = (1/2), ...
         """
         return "Fusion product of {} and {}".format(self._M, self._N)
 
@@ -1740,7 +1740,7 @@ class LatticeFusionProduct(SageObject):
             sage: import vertex_algebras as va
             sage: V = va.Lattice(QQ, matrix([[2]])); M = V.simple_module([1/2])
             sage: M.fusion_product(M.direct_sum(V.adjoint_module())).summands()
-            [Module V_(λ+L), λ = (0), ..., Module V_(λ+L), λ = (1/2), ...]
+            [Module V_(lambda+L), lambda = (0), ..., Module V_(lambda+L), lambda = (1/2), ...]
         """
         return [self._V.simple_module(list(c)) for c in self._cosets]
 

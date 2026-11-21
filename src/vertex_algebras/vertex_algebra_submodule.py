@@ -2298,7 +2298,7 @@ class QuotientVertexAlgebraModule(VertexAlgebraModule):
         sage: Mh / [Mh.highest_weight_vector()]
         Traceback (most recent call last):
         ...
-        ValueError: the quotient of Module V_(λ+L), λ = (1/2), ... by itself is zero
+        ValueError: the quotient of Module V_(lambda+L), lambda = (1/2), ... by itself is zero
         sage: M / 3
         Traceback (most recent call last):
         ...

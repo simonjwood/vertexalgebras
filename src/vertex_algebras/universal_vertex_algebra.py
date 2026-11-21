@@ -2551,7 +2551,7 @@ class UniversalVertexAlgebra(VertexAlgebra):
             ....:                        conformal_vector=J*J/2)
             Traceback (most recent call last):
             ...
-            ValueError: T_(0) X = 0 is not ∂X: T does not act as the translation operator on X
+            ValueError: T_(0) X = 0 is not the derivative of X: T does not act as the translation operator on X
             sage: N.<J> = NormallyOrderedExpressions(QQ)
             sage: W = UniversalVertexAlgebra(QQ, N, {('J', 'J'): [0, 1]},
             ....:                            conformal_vector=J*J/2 + J.derivative()/3)

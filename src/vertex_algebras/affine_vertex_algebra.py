@@ -82,7 +82,7 @@ The OPEs, weights, grading and conformal vector are construction data;
     sage: UniversalAffineVertexAlgebra(K, ['A', 1], level=-2, conformal_vector='sugawara')
     Traceback (most recent call last):
     ...
-    ValueError: no Sugawara vector: B + κ/2 is not invertible over ... (the critical level?)
+    ValueError: no Sugawara vector: B + kappa/2 is not invertible over ... (the critical level?)
 
 A Cartan matrix works as well (here ``G_2``)::
 
@@ -588,7 +588,7 @@ class UniversalAffineVertexAlgebra(UniversalVertexAlgebra):
         sage: UniversalAffineVertexAlgebra(R, ['A', 1], level=t, conformal_vector='sugawara')
         Traceback (most recent call last):
         ...
-        ValueError: no Sugawara vector: B + κ/2 is not invertible over ... (the critical level?)
+        ValueError: no Sugawara vector: B + kappa/2 is not invertible over ... (the critical level?)
 
     The Nappi-Witten algebra, a Sage Lie algebra with a non-degenerate
     invariant form: ``c = 4``; the form as a function gives the same
@@ -1276,11 +1276,11 @@ def _sugawara(R, names, opes, parities, weights, gram, par, br, implementation):
         ....:           a['brackets'], None)
         Traceback (most recent call last):
         ...
-        ValueError: no Sugawara vector: B + κ/2 is not invertible over Rational Field
+        ValueError: no Sugawara vector: B + kappa/2 is not invertible over Rational Field
         (the critical level?)
     """
     G = gram + _killing_form(R, par, br) / 2
-    no = ValueError('no Sugawara vector: B + κ/2 is not invertible over {} '
+    no = ValueError('no Sugawara vector: B + kappa/2 is not invertible over {} '
                     '(the critical level?)'.format(R))
     try:
         if G.det() == 0:

@@ -577,7 +577,7 @@ def _weights_virasoro(R, E, opes, M, par, weights):
         sage: _weights_virasoro(QQ, E, {('x', 'y'): [1]}, M, [0, 0], {'x': 1, 'y': 1})
         Traceback (most recent call last):
         ...
-        ValueError: the weights of paired fields (M_ij ≠ 0) must add up to 1
+        ValueError: the weights of paired fields (M_ij != 0) must add up to 1
     """
     names = E.variable_names()
     n = len(names)
@@ -586,7 +586,7 @@ def _weights_virasoro(R, E, opes, M, par, weights):
         raise ValueError('conformal weights must be given for exactly {}'.format(names))
     h = [R(w[s]) for s in names]
     if any(M[i, j] and h[i] + h[j] != 1 for i in range(n) for j in range(n)):
-        raise ValueError('the weights of paired fields (M_ij ≠ 0) must add up to 1')
+        raise ValueError('the weights of paired fields (M_ij != 0) must add up to 1')
     P = UniversalVertexAlgebra(R, E, opes)
     g = P.gens()
     N = M.inverse()
@@ -722,7 +722,7 @@ def FreeSuperFermions(base_ring, A, form=None, names=None, conformal_vector=None
         sage: FreeSuperFermions(QQ, M, conformal_vector='degrees', degrees={'Phi0': 1, 'Phi1': 1})
         Traceback (most recent call last):
         ...
-        ValueError: the weights of paired fields (M_ij ≠ 0) must add up to 1
+        ValueError: the weights of paired fields (M_ij != 0) must add up to 1
         sage: FreeSuperFermions(QQ, [g.e(1), g.f(1)], lambda a, b: g.invariant_form(a, b))
         Traceback (most recent call last):
         ...

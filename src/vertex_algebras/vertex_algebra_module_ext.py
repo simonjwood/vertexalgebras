@@ -1777,7 +1777,7 @@ class _DeltaImage:
             sage: W0.ext1_up_to(W0, 3, Hom(M0, W0).basis()[0])._delta().extension([1])  # long time
             Traceback (most recent call last):
             ...
-            ValueError: [1] is not in the image of δ: the class does not lift
+            ValueError: [1] is not in the image of delta: the class does not lift
 
         Without classes of the top level (``Ext^1_{A_n}(U, N(n)) = 0``, e.g.
         the Lee-Yang vacuum module, its own projective cover) there is
@@ -1803,7 +1803,7 @@ class _DeltaImage:
         try:
             lam = C.solve_left(vector(R, list(c)))
         except ValueError:
-            raise ValueError('{} is not in the image of δ: the class does not lift'.format(c))
+            raise ValueError('{} is not in the image of delta: the class does not lift'.format(c))
         arow = sum((l * vector(R, s) for l, (s, _) in zip(lam, self._sols)),
                    vector(R, len(self._H._rows)))
         H = self._H
