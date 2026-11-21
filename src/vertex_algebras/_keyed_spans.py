@@ -603,8 +603,10 @@ class _Block:
             ([4, 3, 2], False)
         """
         if self._stale:
-            self._stale = False
+            # stale until the rebuild is complete (Ctrl-C during it: rebuilt
+            # on the next use)
             self._dense_build(self._independent())
+            self._stale = False
 
     def _dense_cols(self, keys):
         r"""
@@ -646,6 +648,29 @@ class _Block:
             sage: D._dense_build([{1: 1, 2: 1}])
             sage: D._cols, D._A, D._pivcols, D._E is None
             ([2, 1], [1 1], [0], True)
+
+        TESTS:
+
+        Ctrl-C during the first build leaves the block stale, not half
+        built (it lacked ``_pivcols``: an ``AttributeError`` on the next
+        use); the next use rebuilds it::
+
+            sage: import sys
+            sage: import vertex_algebras._keyed_spans as ks
+            sage: orig = ks._column_profile
+            sage: def interrupted(A):
+            ....:     if sys._getframe(1).f_code.co_name == '_dense_build':
+            ....:         raise KeyboardInterrupt
+            ....:     return orig(A)
+            sage: D = _Block(QQ, key_order=lambda k: k)
+            sage: ks._column_profile = interrupted
+            sage: try:
+            ....:     D._dense_insert_many([{1: 1, 2: 1}, {2: 1, 3: 1}], ['u', 'v'])
+            ....: except KeyboardInterrupt:
+            ....:     pass
+            sage: ks._column_profile = orig
+            sage: D._stale, D.pivots(), D.labels(), D.rank(), D._stale
+            (True, [3, 2], ['u', 'v'], 2, False)
         """
         from sage.matrix.constructor import matrix
         keys = set()
@@ -656,14 +681,18 @@ class _Block:
         A = matrix(self._R, len(vecs), len(cols),
                    {(i, idx[k]): c for i, v in enumerate(vecs)
                     for k, c in v.items() if c}, sparse=False)
-        self._cols, self._colidx = cols, idx
-        self._A = A              # matrix of the independent vectors
-        self._AP = None          # its columns P: invertible (lazy)
-        self._E = None           # reduced echelon form (lazy)
         from sage.rings.rational_field import QQ
-        self._pivcols = _column_profile(A) if self._R is QQ else None
-        if self._pivcols is None:
-            self._echelon()
+        P = _column_profile(A) if self._R is QQ else None
+        E = None
+        if P is None:
+            E = A.echelon_form()
+            P = list(E.pivots())
+            E = E.matrix_from_rows(range(len(P)))
+        # published in one statement (Ctrl-C: the old state or the new one):
+        # the matrix A of the independent vectors, its invertible columns
+        # A[:, P] (lazy), the reduced echelon form (lazy over QQ)
+        (self._cols, self._colidx, self._A, self._AP, self._E,
+         self._pivcols) = cols, idx, A, None, E, P
 
     def _echelon(self):
         r"""
@@ -689,9 +718,11 @@ class _Block:
             self._dense_matrices(solve=False)       # A (after _import)
             E = self._A.echelon_form()
             P = list(E.pivots())
-            self._E = E.matrix_from_rows(range(len(P)))
+            E = E.matrix_from_rows(range(len(P)))
             if P != self._pivcols:
-                self._pivcols, self._AP = P, None
+                self._E, self._pivcols, self._AP = E, P, None
+            else:
+                self._E = E
         return self._E
 
     def _dense_vector(self, v):
@@ -1004,10 +1035,9 @@ class _Block:
                 self._labels.append(l)
         rest = cand[L:]
         del cand, old, M
-        self._dense = True
-        self._rows = {}
-        self._K = None
-        self._dense_build(self._independent())
+        # stale until rebuilt (Ctrl-C during the rebuild: rebuilt on use)
+        self._dense, self._rows, self._K, self._stale = True, {}, None, True
+        self._fresh()
         if rest:
             more = self._annihilator_insert_many(rest, labels[L - k0:])
             if more is None:
@@ -1089,18 +1119,17 @@ class _Block:
             if ok:
                 self._keep(cand[i])
                 self._labels.append(l)
-        self._dense = True
-        self._rows = {}
+        # stale until the state below is published (Ctrl-C: rebuilt on use)
+        self._dense, self._rows, self._stale = True, {}, True
         # K's rows are the columns of M
         self._K = (list(cols), K) if K.ncols() <= ANNIHILATOR_MAX else None
         # the dense state from the same solve (M's columns are those of
         # _dense_build, its independent rows those of _independent()): no
         # rebuild, and the echelon form when its pivots are the profile
-        self._cols, self._colidx = list(cols), {k: i for i, k in enumerate(cols)}
-        self._A, self._AP = A, None
-        self._E = E
-        self._pivcols = P if P is not None else _column_profile(A)
-        self._stale = False
+        P = P if P is not None else _column_profile(A)
+        (self._cols, self._colidx, self._A, self._AP, self._E, self._pivcols,
+         self._stale) = (list(cols), {k: i for i, k in enumerate(cols)}, A, None,
+                         E, P, False)
         return out
 
     def _annihilator_of_rows(self):
@@ -1256,9 +1285,7 @@ class _Block:
                 self._labels.append(l)
         self._K = (kkeys, Knew)
         if prows or not self._dense:
-            self._dense = True
-            self._rows = {}
-            self._stale = True
+            self._dense, self._rows, self._stale = True, {}, True
         return out
 
     def _export(self):
