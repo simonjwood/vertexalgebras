@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) Cardiff University 2026
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: "If this software was useful in your research and you would like to credit it, please cite it as below."
 title: "sage-vertex-algebras: vertex algebras for SageMath"
 type: software
 version: 0.1.0a3
