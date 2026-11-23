@@ -75,7 +75,7 @@ axioms.
 
 ## Requirements
 
-- SageMath 10.9 or later (Python 3.12 to 3.14).
+- SageMath 10.10 or later (Python 3.12 to 3.14).
 - To build: a C++17 compiler, pkg-config, and the FLINT (3.0 or later) and
   GMP headers. A conda environment with Sage and `cxx-compiler` has all
   of them (see below); pip fetches the other build tools (Cython, meson,
@@ -96,7 +96,7 @@ go through five steps for each operating system:
 5. optional: run the test suite (15–30 minutes).
 
 All commands are typed in a terminal. If you already have some of this
-(for example a conda environment with Sage 10.9 or later), skip the steps
+(for example a conda environment with Sage 10.10 or later), skip the steps
 you have done. Other ways of installing Sage, and installing from this
 repository for development, are described after the three operating
 systems.
@@ -123,12 +123,12 @@ a `sage` environment containing Sage, Python and Jupyter (this downloads
 about 2 GB and takes a few minutes), and switch it on:
 
 ```bash
-~/miniforge3/bin/conda create -n sage "sage>=10.9"
+~/miniforge3/bin/conda create -n sage "sage>=10.10"
 source ~/miniforge3/bin/activate sage
 sage --version
 ```
 
-The last command should print the Sage version, 10.9 or later. More
+The last command should print the Sage version, 10.10 or later. More
 details are in Sage's guide
 [Install from conda-forge](https://doc.sagemath.org/html/en/installation/conda.html).
 
@@ -251,13 +251,12 @@ a `sage` environment containing Sage, Python and Jupyter (this downloads
 about 2 GB and takes a few minutes), and switch it on:
 
 ```bash
-~/miniforge3/bin/conda create -n sage "sage>=10.9"
+~/miniforge3/bin/conda create -n sage "sage>=10.10"
 source ~/miniforge3/bin/activate sage
 sage --version
 ```
 
-The last command should print the Sage version, 10.9 or later; Sage 10.10
-or later is faster than 10.9 for computations over number fields. More
+The last command should print the Sage version, 10.10 or later. More
 details are in Sage's guide
 [Install from conda-forge](https://doc.sagemath.org/html/en/installation/conda.html).
 
@@ -277,7 +276,7 @@ If you already have Anaconda or Miniconda, you can use it instead of
 Miniforge, but Sage only comes from the conda-forge channel: replace
 `~/miniforge3` in the commands by the folder of your installation (for
 example `~/anaconda3`), create the environment with
-`conda create -n sage -c conda-forge --override-channels "sage>=10.9"`,
+`conda create -n sage -c conda-forge --override-channels "sage>=10.10"`,
 and add `-c conda-forge --override-channels` to the `conda install`
 commands below as well.
 
@@ -408,12 +407,12 @@ a `sage` environment containing Sage, Python and Jupyter (this downloads
 about 2 GB and takes a few minutes), and switch it on:
 
 ```bash
-~/miniforge3/bin/conda create -n sage "sage>=10.9"
+~/miniforge3/bin/conda create -n sage "sage>=10.10"
 source ~/miniforge3/bin/activate sage
 sage --version
 ```
 
-The last command should print the Sage version, 10.9 or later. More
+The last command should print the Sage version, 10.10 or later. More
 details are in Sage's guide
 [Install from conda-forge](https://doc.sagemath.org/html/en/installation/conda.html).
 

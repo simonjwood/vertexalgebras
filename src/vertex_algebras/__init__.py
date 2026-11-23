@@ -19,7 +19,7 @@ EXAMPLES::
     sage: L = V.gen('L'); L.ope(L)
     [dL, 2*L, 0, 1/4]
 
-The package needs SageMath (version 10.9 or later), checked when it is
+The package needs SageMath (version 10.10 or later), checked when it is
 imported: Sage is not a declared pip dependency, since no pip name covers
 every Sage installation.
 
@@ -28,9 +28,9 @@ TESTS:
 The version check, and the version of the package::
 
     sage: import vertex_algebras
-    sage: vertex_algebras._sage_version_ok('10.9'), vertex_algebras._sage_version_ok('10.10.beta3')
+    sage: vertex_algebras._sage_version_ok('10.10'), vertex_algebras._sage_version_ok('10.11.beta3')
     (True, True)
-    sage: vertex_algebras._sage_version_ok('10.8')
+    sage: vertex_algebras._sage_version_ok('10.9')
     False
     sage: vertex_algebras.__version__
     '0.1.0a4'
@@ -43,7 +43,7 @@ AUTHORS:
 import re as _re
 
 #: The oldest SageMath release supported.
-_MIN_SAGE = (10, 9)
+_MIN_SAGE = (10, 10)
 
 
 def _sage_version_ok(version):
@@ -54,7 +54,7 @@ def _sage_version_ok(version):
     TESTS::
 
         sage: from vertex_algebras import _sage_version_ok
-        sage: [_sage_version_ok(v) for v in ['10.9', '10.9.rc0', '11.0', '10.8.beta2', '9.9']]
+        sage: [_sage_version_ok(v) for v in ['10.10', '10.10.rc0', '11.0', '10.9', '9.10']]
         [True, True, True, False, False]
     """
     return tuple(int(x) for x in _re.findall(r'\d+', version)[:2]) >= _MIN_SAGE
