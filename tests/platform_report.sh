@@ -6,11 +6,12 @@
 # loaded from, then the whole test suite with the C++ engines and with
 # pure Python (tests/run_all.sh, tests/run_all.sh --fallback).
 #
-# Run from the repository root, in the conda environment with Sage:
+# Run in the conda environment with Sage, from a clone of the repository
+# or from a downloaded release folder (vertexalgebras-<version>):
 #   conda activate sage
 #   tests/platform_report.sh               # build, then all tests
-#   tests/platform_report.sh --no-install  # already built: tests only
-# Writes platform_report_<date>.txt in the repository root (about 15-30
+#   tests/platform_report.sh --no-install  # already installed: tests only
+# Writes platform_report_<date>.txt in the top folder (about 15-30
 # minutes in all); send that file.  Uses bash 3.2 and POSIX tools only
 # (macOS's own bash works).
 set -u
@@ -33,8 +34,13 @@ run() {   # run a command, its output and exit status into the report
 echo "writing $out"
 section "date and repository"
 run date
-run git log -1 --format='%H %cd %s'
-run git status --short
+printf 'folder: %s\n' "$(basename "$(pwd)")" >> "$out"
+if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    run git log -1 --format='%H %cd %s'
+    run git status --short
+else
+    echo 'not a git repository (a downloaded release folder)' >> "$out"
+fi
 
 section "system"
 run uname -a
@@ -73,9 +79,14 @@ section "import"
 run python -c "import vertex_algebras; print(vertex_algebras.__version__)"
 
 section "libraries of the compiled engines"
-for so in build/cp3*/src/vertex_algebras/_universal_engine*.so \
-          build/cp3*/src/vertex_algebras/_linear_algebra_engine*.so; do
-    [ -e "$so" ] || continue
+# the compiled modules that Python imports: in the build folder for an
+# editable install, in site-packages otherwise
+for m in _universal_engine _linear_algebra_engine; do
+    so=$(python -c "import vertex_algebras.$m as m; print(m.__file__)" 2>/dev/null)
+    if [ -z "$so" ] || [ ! -e "$so" ]; then
+        echo "vertex_algebras.$m cannot be imported" >> "$out"
+        continue
+    fi
     if command -v otool > /dev/null; then
         run otool -L "$so"
     else
