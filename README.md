@@ -114,17 +114,29 @@ curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Mi
 bash Miniforge3-$(uname)-$(uname -m).sh
 ```
 
-Accept the licence and the default location, and answer `yes` when the
-installer asks whether to initialise conda. Close the terminal and open a
-new one: the prompt now begins with `(base)`. Then create a `sage`
-environment containing Sage and Python (this downloads about 2 GB and
-takes a few minutes):
+Accept the licence and the default location (`~/miniforge3`). When the
+installer asks whether to update your shell profile to initialise conda,
+answer `no` (the default): your shell stays as it is, and conda is
+switched on only when you ask for it, with the command below. Then create
+a `sage` environment containing Sage, Python and Jupyter (this downloads
+about 2 GB and takes a few minutes), and switch it on:
 
 ```bash
-conda create -n sage "sage>=10.9"
-conda activate sage
+~/miniforge3/bin/conda create -n sage "sage>=10.9"
+source ~/miniforge3/bin/activate sage
 sage --version
 ```
+
+The prompt now begins with `(sage)`. Every later step starts with
+`source ~/miniforge3/bin/activate sage`, in each new terminal. To switch
+the environment off again (the prompt loses its `(sage)`), type
+
+```bash
+conda deactivate
+```
+
+or close the terminal. Typing `sage` on its own starts Sage's interactive
+prompt, `sage:`; leave it with `quit` (or Ctrl+D).
 
 The last command should print the Sage version, 10.9 or later. More
 details are in Sage's guide
@@ -134,7 +146,7 @@ details are in Sage's guide
 and pkg-config from conda-forge, then the package from PyPI:
 
 ```bash
-conda activate sage
+source ~/miniforge3/bin/activate sage
 conda install cxx-compiler pkg-config
 pip install sage-vertex-algebras
 ```
@@ -146,50 +158,48 @@ it worked:
 sage -c "import vertex_algebras; print(vertex_algebras.__version__)"
 ```
 
-**3. The example notebooks.** The notebooks are not part of the pip
-package; download them from GitHub, with the version that matches the
-package (`0.1.0a4`):
+**3. The example notebooks.** The package includes the example notebooks
+and its test suite. Copy them to a folder of your own, where you can run
+and change them:
 
 ```bash
-cd ~
-curl -L https://github.com/simonjwood/vertexalgebras/archive/refs/tags/v0.1.0a4.tar.gz | tar xz
+source ~/miniforge3/bin/activate sage
+python -m vertex_algebras.examples ~/vertex-algebra-notebooks
 ```
 
-This creates the folder `~/vertexalgebras-0.1.0a4`, with the notebooks in
-its `examples` subfolder.
+The folder can be any path that does not exist yet;
+`~/vertex-algebra-notebooks` is only an example, and the commands below
+use it. The command creates the folder, with the notebooks of the
+installed version, their `README.md` (a guide to the notebooks) and the
+test suite in the subfolder `tests`. It never overwrites an existing
+folder: after upgrading the package, copy the new notebooks into a new
+folder.
 
-**4. Jupyter.** Install JupyterLab into the `sage` environment, then open
-the first notebook, `01_getting_started.ipynb`, from the notebook folder:
+**4. Jupyter.** The `sage` environment already has Jupyter. Start it in
+the notebook folder:
 
 ```bash
-conda activate sage
-conda install jupyterlab
-cd ~/vertexalgebras-0.1.0a4/examples
-jupyter lab 01_getting_started.ipynb
+source ~/miniforge3/bin/activate sage
+cd ~/vertex-algebra-notebooks
+sage -n jupyter
 ```
 
-JupyterLab opens the first notebook in your web browser (if it does not,
-copy into the browser the address starting with
-`http://localhost:8888/lab?token=` that the terminal prints). The kernel
-in the top right corner should read "SageMath 10.x" (if Jupyter asks, choose
-SageMath). Run the cells one after another with Shift+Enter. The
-terminal must stay open while you work; to stop Jupyter, press Ctrl+C in
-it twice.
+Jupyter opens in your web browser with the list of notebooks (if it does
+not, copy into the browser the address starting with
+`http://localhost:8888/` that the terminal prints, with its `token=`
+part). Click the first one, `01_getting_started.ipynb`. The kernel in the
+top right corner should read "SageMath 10.x" (if Jupyter asks, choose
+SageMath). Run the cells one after another with Shift+Enter. The terminal
+must stay open while you work; to stop Jupyter, press Ctrl+C in it twice.
 
-Next time, only these commands are needed:
-
-```bash
-conda activate sage
-cd ~/vertexalgebras-0.1.0a4/examples
-jupyter lab
-```
+Next time, the same three commands start it again.
 
 **5. Optional: the test suite.** Run the examples and tests of the
 documentation of the installed package (a minute or two; add `-p 4` after
 `--long` to use four processes):
 
 ```bash
-conda activate sage
+source ~/miniforge3/bin/activate sage
 python -m sage.doctest --long "$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')"
 ```
 
@@ -198,17 +208,16 @@ The last lines should say `All tests passed!`.
 The platform report runs the whole test suite, with the C++ engines and
 in pure Python, and writes one file with the results and a description of
 your system: the file to send when something does not work. Run it in the
-folder downloaded in step 3 (it takes 15–30 minutes):
+folder of step 3 (it takes 15–30 minutes):
 
 ```bash
-conda activate sage
-cd ~/vertexalgebras-0.1.0a4
-bash tests/platform_report.sh --no-install
+source ~/miniforge3/bin/activate sage
+cd ~/vertex-algebra-notebooks
+bash tests/platform_report.sh
 ```
 
-`--no-install` tests the package installed in step 2 instead of building
-it again. The report is the file `platform_report_<date>_<time>.txt` in
-`~/vertexalgebras-0.1.0a4`; its last lines say `ALL PASSED` or list what failed.
+The report is the file `platform_report_<date>_<time>.txt` in that
+folder; its last lines say `ALL PASSED` or list what failed.
 
 ### macOS
 
