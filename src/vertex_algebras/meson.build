@@ -6,6 +6,7 @@ py.install_sources(
   'bootstrap.py',
   'catalog.py',
   'commutant_vertex_algebra.py',
+  'examples.py',
   'ghost_systems.py',
   '_grading_groups.py',
   'lattice_vertex_algebra.py',
@@ -52,3 +53,17 @@ foreach name : ['_universal_engine', '_lattice_engine', '_tensor_engine',
     subdir: 'vertex_algebras',
   )
 endforeach
+
+# The example notebooks and the test suite, for vertex_algebras.examples
+# (copy_examples): installed under _examples/ with the repository's layout
+# (examples/, tests/, LICENSE).  Not the notebooks' cache triplet_data/.
+examples_dir = py.get_install_dir() / 'vertex_algebras' / '_examples'
+install_subdir('../../examples', install_dir: examples_dir,
+  exclude_directories: ['triplet_data', '.ipynb_checkpoints'])
+install_subdir('../../tests', install_dir: examples_dir,
+  exclude_directories: ['__pycache__'])
+install_data('../../LICENSE', install_dir: examples_dir)
+# Sage's doctester skips a folder with a file named nodoctest: the scripts
+# in tests/ are not doctests (python -m sage.doctest on the package).
+install_data('_examples_nodoctest', install_dir: examples_dir,
+  rename: 'nodoctest')

@@ -4,7 +4,7 @@ Sixteen Jupyter notebooks that introduce the package through worked
 examples, numbered in reading order. They are saved with their outputs, so
 they can be read without running them. To run them, open them in a Jupyter
 session with the SageMath kernel, with the package installed (see the
-[main README](../README.md)).
+[main README](https://github.com/simonjwood/vertexalgebras#readme)).
 
 To save a notebook as a PDF, use Jupyter's "PDF via HTML" export (or print
 from the browser). The "PDF via LaTeX" export fails on the notebooks'
@@ -499,4 +499,4 @@ Topics that appear in several notebooks; "03 §6" means
 The notebooks are by Christopher Raymond and Simon Wood. Copyright (C) 2026
 Cardiff University and University of Hamburg. Licensed under the GNU General
 Public License, version 2 or later (GPL-2.0-or-later), like the package; see
-[LICENSE](../LICENSE).
+[LICENSE](https://github.com/simonjwood/vertexalgebras/blob/main/LICENSE).

@@ -90,6 +90,14 @@ Modules
    reference/vertex_algebra_module_ext
    reference/fusion_product
 
+The example notebooks
+---------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   reference/examples
+
 Bibliography
 ------------
 
