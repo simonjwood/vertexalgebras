@@ -78,10 +78,9 @@ jobs:
           # newest Sage on every platform conda-forge builds it for
           - {os: ubuntu-24.04,     sage: '10.10', python: '3.13'}
           - {os: ubuntu-24.04-arm, sage: '10.10', python: '3.13'}
-          # the supported range (pyproject.toml: Python >= 3.12; Sage >= 10.9, _MIN_SAGE)
+          # the supported range (pyproject.toml: Python >= 3.12; Sage >= 10.10, _MIN_SAGE)
           - {os: ubuntu-24.04,     sage: '10.10', python: '3.12'}
           - {os: ubuntu-24.04,     sage: '10.10', python: '3.14'}
-          - {os: ubuntu-24.04,     sage: '10.9', python: '3.14'}
     steps:
       - uses: actions/download-artifact@v7
         with:
@@ -128,7 +127,7 @@ jobs:
         include:
           - {os: macos-15,         sage: '10.10', python: '3.13'}   # Apple Silicon
           - {os: macos-15-intel,   sage: '10.10', python: '3.13'}   # Intel
-          - {os: macos-15,         sage: '10.9', python: '3.14'}
+          - {os: macos-15,         sage: '10.10', python: '3.14'}
     steps:
       - uses: actions/download-artifact@v7
         with:
@@ -210,7 +209,7 @@ jobs:
   arch:
     # Sage as a distribution package rather than from conda: Arch's
     # sagemath with the system FLINT, GMP and GCC.  Allowed to fail: the
-    # package may lag behind Sage 10.9 (vertex_algebras then refuses to
+    # package may lag behind Sage 10.10 (vertex_algebras then refuses to
     # import), and its Python may be newer than Sage supports.
     name: Arch Linux sagemath (optional)
     runs-on: ubuntu-24.04

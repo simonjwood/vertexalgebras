@@ -11,7 +11,7 @@ license = "GPL-2.0-or-later"
 license-files = ["LICENSE"]
 requires-python = ">=3.12, <3.15"
 authors = [{name = "Christopher Raymond"}, {name = "Simon Wood"}]
-# SageMath (>= 10.9) is required but not declared: no pip name covers every
+# SageMath (>= 10.10) is required but not declared: no pip name covers every
 # Sage installation (conda, built from source, distribution packages), so
 # vertex_algebras checks for it when imported.  Install into a Sage
 # environment, e.g. "pip install --no-build-isolation ." (README.md).

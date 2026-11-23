@@ -85,7 +85,6 @@ import importlib
 import os
 import warnings
 from math import factorial as _fact
-from math import gcd
 
 from sage.combinat.free_module import CombinatorialFreeModule
 from sage.misc.fast_methods import Singleton
@@ -730,188 +729,6 @@ class _AlgebraicCoefficients:
         return x
 
 
-class _SingularNumberFieldElements:
-    r"""
-    Elements of a polynomial ring ``R`` implemented by Singular over an
-    absolute number field ``M``, built from rational power-basis coordinates
-    by Singular arithmetic only.
-
-    Why: Sage 10.9 and earlier convert every coefficient that enters such a
-    ring (``sa2si_NF``, also for rationals and integers: ``R(dict)``, ``3 *
-    f``) by creating and completing a new Singular ring, which is never freed
-    (about 2 KB per coefficient) and on macOS costs milliseconds (Singular
-    looks up its routines through the dynamic loader); Sage 10.10 reuses one
-    ring.  The C++ engines return thousands of such coefficients per product
-    (the lattice algebra of ``A_2`` over ``Q(sqrt 5)[c, d]``: 72679
-    coefficients in one test run, 1270 s per run on macOS).  Here the
-    generator of ``M`` is the only number converted; integers are sums of
-    ``1`` (digits in base 256, Horner's scheme), a coefficient ``Σ_k n_k
-    a^k / D`` uses Singular's division by a constant, monomials are products
-    of the generators.  Integers, coefficients and monomials met before are
-    cached (each cache is emptied once it holds ``CACHE_MAX`` entries).
-
-    EXAMPLES::
-
-        sage: from vertex_algebras.vertex_algebra import _SingularNumberFieldElements
-        sage: K.<s> = QuadraticField(5); R.<c, d> = K[]
-        sage: B = _SingularNumberFieldElements(R, K)
-        sage: f = B.polynomial({(1, 0): [(0, 3, 4), (1, -1, 6)], (0, 2): [(0, 123456789, 1)]})
-        sage: f == R({(1, 0): 3/4 - s/6, (0, 2): 123456789})
-        True
-        sage: B.number(((1, 2**100 + 1, 7),)) == (2**100 + 1) * s / 7, B.integer(-300)
-        (True, -300)
-
-    TESTS:
-
-    A cubic field, negative and large numbers, denominators, and caches
-    emptied on the way::
-
-        sage: L.<z> = NumberField(x^3 - 2); S.<a, b, e> = L[]
-        sage: B = _SingularNumberFieldElements(S, L); B.CACHE_MAX = 3
-        sage: data = [((0, -7, 3), (2, 5, 2)), ((1, 3**60, 11),), ((0, 1, 1),),
-        ....:         ((0, -2**70, 1), (1, 1, 2**40), (2, -9, 4))] * 2
-        sage: all(B.number(v) == S(sum(QQ((p, q)) * z^k for k, p, q in v)) for v in data)
-        True
-        sage: f = B.polynomial({(2, 0, 1): [(2, -1, 3)], (0, 0, 0): [(0, 5, 1), (1, 1, 5)]})
-        sage: f == -z^2/3 * a^2 * e + 5 + z/5, B.polynomial({}) == 0
-        (True, True)
-    """
-    CACHE_MAX = 1 << 16
-
-    def __init__(self, R, M):
-        """
-        TESTS::
-
-            sage: from vertex_algebras.vertex_algebra import _SingularNumberFieldElements
-            sage: K.<s> = QuadraticField(5); R.<c, d> = K[]
-            sage: B = _SingularNumberFieldElements(R, K)
-            sage: len(B._digits), B._radix == 256, B._pow == [1, R(s)], B._gens == (c, d)
-            (256, True, True, True)
-        """
-        self._R = R
-        one, zero = R.one(), R.zero()
-        digits = [zero]
-        for _ in range(255):
-            digits.append(digits[-1] + one)
-        self._digits = digits
-        self._radix = digits[-1] + one
-        a = R(M.gen())                    # the only number converted by Sage
-        self._pow = [one]
-        for _ in range(1, M.degree()):
-            self._pow.append(self._pow[-1] * a)
-        self._gens = R.gens()
-        self._zero, self._one = zero, one
-        self._ints, self._nums, self._monos = {}, {}, {}
-
-    def _store(self, cache, key, value):
-        """
-        ``cache[key] = value`` (the cache emptied first if it holds
-        ``CACHE_MAX`` entries); returns ``value``.
-
-        EXAMPLES::
-
-            sage: from vertex_algebras.vertex_algebra import _SingularNumberFieldElements
-            sage: K.<s> = QuadraticField(5); R.<c, d> = K[]
-            sage: B = _SingularNumberFieldElements(R, K)
-            sage: B.CACHE_MAX = 2; cache = {0: 0, 1: 1}
-            sage: B._store(cache, 2, 5), cache
-            (5, {2: 5})
-        """
-        if len(cache) >= self.CACHE_MAX:
-            cache.clear()
-        cache[key] = value
-        return value
-
-    def integer(self, n):
-        """
-        The integer ``n`` as a constant of the ring.
-
-        EXAMPLES::
-
-            sage: from vertex_algebras.vertex_algebra import _SingularNumberFieldElements
-            sage: K.<s> = QuadraticField(5); R.<c, d> = K[]
-            sage: B = _SingularNumberFieldElements(R, K)
-            sage: B.integer(1000) == 1000, B.integer(-2^80) == -2^80, B.integer(0)
-            (True, True, 0)
-        """
-        r = self._ints.get(n)
-        if r is not None:
-            return r
-        m, ds = abs(int(n)), []
-        while m:
-            ds.append(m & 255)
-            m >>= 8
-        r = self._zero
-        for x in reversed(ds):
-            r = r * self._radix + self._digits[x]
-        return self._store(self._ints, n, -r if n < 0 else r)
-
-    def number(self, coords):
-        """
-        The constant ``Σ_k (a_k / b_k) θ^k`` for ``coords`` a tuple of
-        ``(k, a_k, b_k)`` (``θ`` the generator of the number field).
-
-        EXAMPLES::
-
-            sage: from vertex_algebras.vertex_algebra import _SingularNumberFieldElements
-            sage: K.<s> = QuadraticField(5); R.<c, d> = K[]
-            sage: B = _SingularNumberFieldElements(R, K)
-            sage: B.number(((0, 1, 2), (1, -3, 4))) == 1/2 - 3*s/4
-            True
-        """
-        r = self._nums.get(coords)
-        if r is not None:
-            return r
-        D = 1
-        for _, _, b in coords:
-            D = D * b // gcd(D, b)
-        r = self._zero
-        for k, a, b in coords:
-            r += self.integer(a * (D // b)) * self._pow[k]
-        if D != 1:
-            r = r / self.integer(D)       # Singular's division by a constant
-        return self._store(self._nums, coords, r)
-
-    def monomial(self, e):
-        """
-        The monomial with exponent vector ``e``.
-
-        EXAMPLES::
-
-            sage: from vertex_algebras.vertex_algebra import _SingularNumberFieldElements
-            sage: K.<s> = QuadraticField(5); R.<c, d> = K[]
-            sage: B = _SingularNumberFieldElements(R, K)
-            sage: B.monomial((2, 1)) == c^2*d, B.monomial((0, 0))
-            (True, 1)
-        """
-        r = self._monos.get(e)
-        if r is not None:
-            return r
-        r = self._one
-        for g, k in zip(self._gens, e):
-            if k:
-                r = r * g ** k
-        return self._store(self._monos, e, r)
-
-    def polynomial(self, terms):
-        """
-        The polynomial ``{exponents: [(k, a, b), ...]}`` (coordinates as
-        for :meth:`number`).
-
-        EXAMPLES::
-
-            sage: from vertex_algebras.vertex_algebra import _SingularNumberFieldElements
-            sage: K.<s> = QuadraticField(5); R.<c, d> = K[]
-            sage: B = _SingularNumberFieldElements(R, K)
-            sage: B.polynomial({(1, 0): [(1, 1, 1)], (0, 0): [(0, -1, 3)]}) == s*c - 1/3
-            True
-        """
-        r = self._zero
-        for e, coords in terms.items():
-            r += self.number(tuple(sorted(coords))) * self.monomial(e)
-        return r
-
-
 def _engine_ring(F):
     """
     The coefficient kind of a C++ engine (``_engine_base.hpp``)
@@ -1068,25 +885,12 @@ class _EngineKernel:
                         out.extend(coords((int(e),) if uni else tuple(e), c))
                     return out
 
-                from sage.rings.polynomial.multi_polynomial_libsingular import (
-                    MPolynomialRing_libsingular,
-                )
-                if isinstance(Rk, MPolynomialRing_libsingular) and to_abs is None:
-                    # never Rk(dict): see _SingularNumberFieldElements
-                    build = _SingularNumberFieldElements(Rk, M)
-
-                    def cout(t):
-                        d = {}
-                        for e, a, b in t:
-                            d.setdefault(e[:-1], []).append((e[-1], a, b))
-                        return build.polynomial(d)
-                else:
-                    def cout(t):
-                        d = {}
-                        for e, a, b in t:
-                            d.setdefault(e[:-1], []).append((e, a, b))
-                        return Rk({(e[0] if uni else e): cb(M(field_out(ts)))
-                                   for e, ts in d.items()})
+                def cout(t):
+                    d = {}
+                    for e, a, b in t:
+                        d.setdefault(e[:-1], []).append((e, a, b))
+                    return Rk({(e[0] if uni else e): cb(M(field_out(ts)))
+                               for e, ts in d.items()})
                 self._cin, self._cout = cin, cout
         else:
             raise ValueError('unknown engine coefficient kind %r' % (kind,))
@@ -1215,9 +1019,7 @@ class _EngineKernel:
 
     def _lift_scalar(self, x):
         """``x`` (a scalar, e.g. a cocycle value) lifted and in engine terms,
-        cached: few distinct values occur, and lifting into a Singular ring
-        over a number field is slow before Sage 10.10 (see
-        :class:`_SingularNumberFieldElements`).  May raise.
+        cached: few distinct values occur.  May raise.
 
         EXAMPLES::
 

@@ -1182,9 +1182,7 @@ class LatticeVertexAlgebra(VertexAlgebra):
             E = [[R(epsilon[i, j]) for j in range(n)] for i in range(n)]
         self._eps_mat = E
         # 0 for 1, 1 for -1, None otherwise: signs are computed by negation
-        # in _eps (powers of R(-1) convert scalars into R, which is slow over
-        # a Singular polynomial ring over a number field before Sage 10.10:
-        # vertex_algebra._SingularNumberFieldElements)
+        # in _eps, not as products with entries of R
         one = R.one()
         self._eps_sign = [[0 if e == one else 1 if e == -one else None for e in row]
                           for row in E]

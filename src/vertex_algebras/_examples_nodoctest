@@ -1,0 +1,3 @@
+Installed as _examples/nodoctest: Sage's doctester skips a folder that
+holds a file named nodoctest.  The test scripts in _examples/tests are run
+by tests/run_all.sh, not as doctests (vertex_algebras.examples).

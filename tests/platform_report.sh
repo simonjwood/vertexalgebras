@@ -6,11 +6,12 @@
 # loaded from, then the whole test suite with the C++ engines and with
 # pure Python (tests/run_all.sh, tests/run_all.sh --fallback).
 #
-# Run in the conda environment with Sage, from a clone of the repository
-# or from a downloaded release folder (vertexalgebras-<version>):
+# Run in the conda environment with Sage, from a clone of the repository,
+# a downloaded release folder (vertexalgebras-<version>), or a folder made
+# by `python -m vertex_algebras.examples` (there: tests only, always):
 #   conda activate sage
-#   tests/platform_report.sh               # build, then all tests
-#   tests/platform_report.sh --no-install  # already installed: tests only
+#   bash tests/platform_report.sh               # build, then all tests
+#   bash tests/platform_report.sh --no-install  # already installed: tests only
 # Writes platform_report_<date>.txt in the top folder (about 15-30
 # minutes in all); send that file.  Uses bash 3.2 and POSIX tools only
 # (macOS's own bash works).
@@ -19,6 +20,7 @@ cd "$(dirname "$0")/.."
 out="platform_report_$(date +%Y%m%d_%H%M%S).txt"
 install=1
 [ "${1:-}" = "--no-install" ] && install=0
+[ -e meson.build ] || install=0    # a copied folder: nothing to build
 
 section() {
     printf '\n===== %s =====\n' "$1" >> "$out"
@@ -39,7 +41,7 @@ if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
     run git log -1 --format='%H %cd %s'
     run git status --short
 else
-    echo 'not a git repository (a downloaded release folder)' >> "$out"
+    echo 'not a git repository (a release folder, or a copy by python -m vertex_algebras.examples)' >> "$out"
 fi
 
 section "system"
@@ -96,12 +98,12 @@ done
 
 section "tests/run_all.sh (C++ engines)"
 start=$(date +%s)
-run tests/run_all.sh
+run bash tests/run_all.sh
 printf 'took %s s\n' "$(( $(date +%s) - start ))" >> "$out"
 
 section "tests/run_all.sh --fallback (pure Python)"
 start=$(date +%s)
-run tests/run_all.sh --fallback
+run bash tests/run_all.sh --fallback
 printf 'took %s s\n' "$(( $(date +%s) - start ))" >> "$out"
 
 section "summary"
