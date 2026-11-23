@@ -77,94 +77,437 @@ axioms.
 
 - SageMath 10.9 or later (Python 3.12 to 3.14).
 - To build: a C++17 compiler, pkg-config, and the FLINT (3.0 or later) and
-  GMP headers. A conda environment with Sage has all of them; pip fetches
-  the other build tools (Cython, meson, meson-python, ninja) itself.
+  GMP headers. A conda environment with Sage and `cxx-compiler` has all
+  of them (see below); pip fetches the other build tools (Cython, meson,
+  meson-python, ninja) itself.
 
 Linux and macOS are supported. On Windows, use Sage in the Windows
 Subsystem for Linux (WSL), as Sage itself recommends.
 
 ## Installation
 
-The package is installed with pip into the Python of an existing Sage
-installation. Sage is not a declared dependency, because no single pip
-package name covers all the ways Sage is installed; importing
-`vertex_algebras` checks the Sage version. To install from this GitHub
-repository instead, for development, see "From the repository (for
-development)" below.
+The instructions below start from a computer with nothing installed, and
+go through five steps for each operating system:
 
-The recommended way to get Sage, on Linux and on macOS, is a conda
-environment: it already has the compilers, FLINT and GMP.
+1. install Python and Sage, with conda;
+2. install the package;
+3. download the example notebooks;
+4. install Jupyter and run the notebooks;
+5. optional: run the test suite (15–30 minutes).
+
+All commands are typed in a terminal. If you already have some of this
+(for example a conda environment with Sage 10.9 or later), skip the steps
+you have done. Other ways of installing Sage, and installing from this
+repository for development, are described after the three operating
+systems.
 
 ### Linux
 
-1. Install [Miniforge](https://github.com/conda-forge/miniforge) and
-   create the environment with `conda create -n sage sage`, as described
-   in Sage's guide
-   [Install from conda-forge](https://doc.sagemath.org/html/en/installation/conda.html).
-2. Install the package:
+These commands are for any Linux distribution on x86_64 or arm64 (aarch64).
 
-   ```
-   conda activate sage
-   pip install sage-vertex-algebras
-   ```
+**1. Python and Sage.** Install
+[Miniforge](https://github.com/conda-forge/miniforge), a minimal conda
+that installs from conda-forge, where Sage is packaged:
 
-   pip builds the C++ engines on your machine (about a minute).
+```bash
+curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+bash Miniforge3-$(uname)-$(uname -m).sh
+```
+
+Accept the licence and the default location, and answer `yes` when the
+installer asks whether to initialise conda. Close the terminal and open a
+new one: the prompt now begins with `(base)`. Then create a `sage`
+environment containing Sage and Python (this downloads about 2 GB and
+takes a few minutes):
+
+```bash
+conda create -n sage "sage>=10.9"
+conda activate sage
+sage --version
+```
+
+The last command should print the Sage version, 10.9 or later. More
+details are in Sage's guide
+[Install from conda-forge](https://doc.sagemath.org/html/en/installation/conda.html).
+
+**2. The package.** In the `sage` environment, install the C++ compiler
+and pkg-config from conda-forge, then the package from PyPI:
+
+```bash
+conda activate sage
+conda install cxx-compiler pkg-config
+pip install sage-vertex-algebras
+```
+
+pip builds the C++ engines on your machine (about a minute). Check that
+it worked:
+
+```bash
+sage -c "import vertex_algebras; print(vertex_algebras.__version__)"
+```
+
+**3. The example notebooks.** The notebooks are not part of the pip
+package; download them from GitHub, with the version that matches the
+package (`0.1.0a4`):
+
+```bash
+cd ~
+curl -L https://github.com/simonjwood/vertexalgebras/archive/refs/tags/v0.1.0a4.tar.gz | tar xz
+```
+
+This creates the folder `~/vertexalgebras-0.1.0a4`, with the notebooks in
+its `examples` subfolder.
+
+**4. Jupyter.** Install JupyterLab into the `sage` environment, then open
+the first notebook, `01_getting_started.ipynb`, from the notebook folder:
+
+```bash
+conda activate sage
+conda install jupyterlab
+cd ~/vertexalgebras-0.1.0a4/examples
+jupyter lab 01_getting_started.ipynb
+```
+
+JupyterLab opens the first notebook in your web browser (if it does not,
+copy into the browser the address starting with
+`http://localhost:8888/lab?token=` that the terminal prints). The kernel
+in the top right corner should read "SageMath 10.x" (if Jupyter asks, choose
+SageMath). Run the cells one after another with Shift+Enter. The
+terminal must stay open while you work; to stop Jupyter, press Ctrl+C in
+it twice.
+
+Next time, only these commands are needed:
+
+```bash
+conda activate sage
+cd ~/vertexalgebras-0.1.0a4/examples
+jupyter lab
+```
+
+**5. Optional: the test suite.** Run the examples and tests of the
+documentation of the installed package (a minute or two; add `-p 4` after
+`--long` to use four processes):
+
+```bash
+conda activate sage
+python -m sage.doctest --long "$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')"
+```
+
+The last lines should say `All tests passed!`.
+
+The platform report runs the whole test suite, with the C++ engines and
+in pure Python, and writes one file with the results and a description of
+your system: the file to send when something does not work. Run it in the
+folder downloaded in step 3 (it takes 15–30 minutes):
+
+```bash
+conda activate sage
+cd ~/vertexalgebras-0.1.0a4
+bash tests/platform_report.sh --no-install
+```
+
+`--no-install` tests the package installed in step 2 instead of building
+it again. The report is the file `platform_report_<date>_<time>.txt` in
+`~/vertexalgebras-0.1.0a4`; its last lines say `ALL PASSED` or list what failed.
 
 ### macOS
 
-For Apple Silicon and Intel Macs:
+For Apple Silicon and Intel Macs. Open the Terminal app (in
+Applications → Utilities).
 
-1. Install the Xcode Command Line Tools once: `xcode-select --install`.
-   Conda's compilers use Apple's SDK from them.
-2. Install the [Miniforge](https://github.com/conda-forge/miniforge)
-   build for your processor (`arm64` for Apple Silicon, `x86_64` for
-   Intel), then create the environment with `conda create -n sage sage`,
-   as described in Sage's guide
-   [Install from conda-forge](https://doc.sagemath.org/html/en/installation/conda.html).
-   Sage 10.10 or later is faster here than 10.9 for computations over
-   number fields; the package works with both.
-3. Install the package:
+**1. Python and Sage.** First install Apple's Command Line Tools, which
+provide the system headers that the compiler of step 2 uses:
 
-   ```
-   conda activate sage
-   pip install sage-vertex-algebras
-   ```
+```bash
+xcode-select --install
+```
 
-   pip builds the C++ engines on your machine (about a minute). If the
-   build reports that it cannot find a C++ compiler, run
-   `conda install cxx-compiler` in the environment and install again.
-4. Check that FLINT and GMP come from the conda environment, not from
-   Homebrew or elsewhere:
+A window asks for confirmation; wait until the installation finishes
+(if it says the tools are already installed, go on). Then install
+[Miniforge](https://github.com/conda-forge/miniforge), a minimal conda
+that installs from conda-forge, where Sage is packaged; the command picks
+the build for your processor:
 
-   ```
-   otool -L "$(python -c 'import vertex_algebras._universal_engine as m; print(m.__file__)')"
-   ```
+```bash
+curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+bash Miniforge3-$(uname)-$(uname -m).sh
+```
 
-   The `libflint` and `libgmp` lines should point into the environment
-   (`@rpath/...` or a path under `miniforge3/envs/sage`).
+Accept the licence and the default location, and answer `yes` when the
+installer asks whether to initialise conda. Close the Terminal window and
+open a new one: the prompt now begins with `(base)`. Then create a `sage`
+environment containing Sage and Python (this downloads about 2 GB and
+takes a few minutes):
+
+```bash
+conda create -n sage "sage>=10.9"
+conda activate sage
+sage --version
+```
+
+The last command should print the Sage version, 10.9 or later; Sage 10.10
+or later is faster than 10.9 for computations over number fields. More
+details are in Sage's guide
+[Install from conda-forge](https://doc.sagemath.org/html/en/installation/conda.html).
+
+If you already have Anaconda or Miniconda, you can use it instead of
+Miniforge, but Sage only comes from the conda-forge channel: create the
+environment with
+`conda create -n sage -c conda-forge --override-channels "sage>=10.9"`, and
+add `-c conda-forge --override-channels` to the `conda install` commands
+below as well.
+
+**2. The package.** In the `sage` environment, install the C++ compiler
+and pkg-config from conda-forge, then the package from PyPI:
+
+```bash
+conda activate sage
+conda install cxx-compiler pkg-config
+pip install sage-vertex-algebras
+```
+
+pip builds the C++ engines on your machine (about a minute). Check that
+it worked:
+
+```bash
+sage -c "import vertex_algebras; print(vertex_algebras.__version__)"
+```
+
+If you also use Homebrew, check that FLINT and GMP come from the conda
+environment and not from Homebrew:
+
+```bash
+otool -L "$(python -c 'import vertex_algebras._universal_engine as m; print(m.__file__)')"
+```
+
+The `libflint` and `libgmp` lines should point into the environment
+(`@rpath/...` or a path under `miniforge3/envs/sage`).
+
+**3. The example notebooks.** The notebooks are not part of the pip
+package; download them from GitHub, with the version that matches the
+package (`0.1.0a4`):
+
+```bash
+cd ~
+curl -L https://github.com/simonjwood/vertexalgebras/archive/refs/tags/v0.1.0a4.tar.gz | tar xz
+```
+
+This creates the folder `vertexalgebras-0.1.0a4` in your home folder, with
+the notebooks in its `examples` subfolder.
+
+**4. Jupyter.** Install JupyterLab into the `sage` environment, then open
+the first notebook, `01_getting_started.ipynb`, from the notebook folder:
+
+```bash
+conda activate sage
+conda install jupyterlab
+cd ~/vertexalgebras-0.1.0a4/examples
+jupyter lab 01_getting_started.ipynb
+```
+
+JupyterLab opens the first notebook in your web browser (if it does not,
+copy into the browser the address starting with
+`http://localhost:8888/lab?token=` that the terminal prints). The kernel
+in the top right corner should read "SageMath 10.x" (if Jupyter asks, choose
+SageMath). Run the cells one after another with Shift+Enter. The
+Terminal window must stay open while you work; to stop Jupyter, press
+Ctrl+C in it twice.
+
+Next time, only these commands are needed:
+
+```bash
+conda activate sage
+cd ~/vertexalgebras-0.1.0a4/examples
+jupyter lab
+```
+
+**5. Optional: the test suite.** Run the examples and tests of the
+documentation of the installed package (a minute or two; add `-p 4` after
+`--long` to use four processes):
+
+```bash
+conda activate sage
+python -m sage.doctest --long "$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')"
+```
+
+The last lines should say `All tests passed!`.
+
+The platform report runs the whole test suite, with the C++ engines and
+in pure Python, and writes one file with the results and a description of
+your system: the file to send when something does not work. Run it in the
+folder downloaded in step 3 (it takes 15–30 minutes):
+
+```bash
+conda activate sage
+cd ~/vertexalgebras-0.1.0a4
+bash tests/platform_report.sh --no-install
+```
+
+`--no-install` tests the package installed in step 2 instead of building
+it again. The report is the file `platform_report_<date>_<time>.txt` in
+`vertexalgebras-0.1.0a4` in your home folder; its last lines say `ALL PASSED` or list what failed.
+
+### Windows
+
+Sage does not run on Windows itself. As Sage recommends, it runs in the
+Windows Subsystem for Linux (WSL), a Linux system inside Windows 10
+(version 2004 or later) or Windows 11; the package is then installed
+exactly as on Linux.
+
+**1. Python and Sage.** Install WSL with Ubuntu: open PowerShell as
+administrator (right-click the Start button → "Terminal (Admin)" or
+"Windows PowerShell (Admin)") and run
+
+```powershell
+wsl --install
+```
+
+Restart the computer when asked. Then open **Ubuntu** from the Start
+menu; the first time, it asks you to choose a Linux user name and
+password. All the following commands are typed in this Ubuntu window,
+not in PowerShell. Microsoft's guide
+[Install WSL](https://learn.microsoft.com/en-us/windows/wsl/install) has
+more details.
+
+In the Ubuntu window, install
+[Miniforge](https://github.com/conda-forge/miniforge), a minimal conda
+that installs from conda-forge, where Sage is packaged:
+
+```bash
+curl -L -O "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+bash Miniforge3-$(uname)-$(uname -m).sh
+```
+
+Accept the licence and the default location, and answer `yes` when the
+installer asks whether to initialise conda. Close the Ubuntu window and
+open a new one: the prompt now begins with `(base)`. Then create a `sage`
+environment containing Sage and Python (this downloads about 2 GB and
+takes a few minutes):
+
+```bash
+conda create -n sage "sage>=10.9"
+conda activate sage
+sage --version
+```
+
+The last command should print the Sage version, 10.9 or later.
+
+**2. The package.** In the `sage` environment, install the C++ compiler
+and pkg-config from conda-forge, then the package from PyPI:
+
+```bash
+conda activate sage
+conda install cxx-compiler pkg-config
+pip install sage-vertex-algebras
+```
+
+pip builds the C++ engines on your machine (about a minute). Check that
+it worked:
+
+```bash
+sage -c "import vertex_algebras; print(vertex_algebras.__version__)"
+```
+
+**3. The example notebooks.** The notebooks are not part of the pip
+package; download them from GitHub, with the version that matches the
+package (`0.1.0a4`), into your Linux home folder:
+
+```bash
+cd ~
+curl -L https://github.com/simonjwood/vertexalgebras/archive/refs/tags/v0.1.0a4.tar.gz | tar xz
+```
+
+This creates the folder `~/vertexalgebras-0.1.0a4`, with the notebooks in
+its `examples` subfolder. Keep your work in the Linux home folder rather
+than in the Windows folders under `/mnt/c`, which are much slower from
+WSL. In Windows' File Explorer, the Linux home folder is under "Linux" →
+"Ubuntu" → `home`.
+
+**4. Jupyter.** Install JupyterLab into the `sage` environment, then open
+the first notebook, `01_getting_started.ipynb`, from the notebook folder:
+
+```bash
+conda activate sage
+conda install jupyterlab
+cd ~/vertexalgebras-0.1.0a4/examples
+jupyter lab --no-browser 01_getting_started.ipynb
+```
+
+The Ubuntu window prints an address starting with
+`http://localhost:8888/lab?token=`; copy it (select it and press
+Ctrl+Shift+C) into a web browser in Windows, which opens the first
+notebook. The kernel in the top right corner should
+read "SageMath 10.x" (if Jupyter asks, choose SageMath). Run the cells one
+after another with Shift+Enter. The Ubuntu window must stay open while
+you work; to stop Jupyter, press Ctrl+C in it twice.
+
+Next time, open Ubuntu from the Start menu and run
+
+```bash
+conda activate sage
+cd ~/vertexalgebras-0.1.0a4/examples
+jupyter lab --no-browser
+```
+
+**5. Optional: the test suite.** Run the examples and tests of the
+documentation of the installed package (a minute or two; add `-p 4` after
+`--long` to use four processes):
+
+```bash
+conda activate sage
+python -m sage.doctest --long "$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')"
+```
+
+The last lines should say `All tests passed!`.
+
+The platform report runs the whole test suite, with the C++ engines and
+in pure Python, and writes one file with the results and a description of
+your system: the file to send when something does not work. Run it in the
+folder downloaded in step 3 (it takes 15–30 minutes):
+
+```bash
+conda activate sage
+cd ~/vertexalgebras-0.1.0a4
+bash tests/platform_report.sh --no-install
+```
+
+`--no-install` tests the package installed in step 2 instead of building
+it again. The report is the file `platform_report_<date>_<time>.txt` in
+`~/vertexalgebras-0.1.0a4`; its last lines say `ALL PASSED` or list what failed. To attach it to an email in Windows, find it in File Explorer under
+"Linux" → "Ubuntu" → `home`.
+
+### Common problems
+
+Two things cause most problems:
+
+- **Every new terminal starts outside the Sage environment.** Run
+  `conda activate sage` first in every new terminal, before `pip`,
+  `sage` or `jupyter`; the prompt then begins with `(sage)`.
+- **Jupyter must be the one in the Sage environment**, and the notebooks
+  must run with the **SageMath** kernel, not "Python 3". Jupyter from
+  another installation (Anaconda Navigator, a system Jupyter, VS Code
+  with another Python) does not see the package.
+
+If something else goes wrong, please
+[open an issue](https://github.com/simonjwood/vertexalgebras/issues) and
+attach the platform report of step 5. If the installation in step 2
+failed, so that there is nothing to test, include instead the output of
+`sage --version` and `uname -sm` and the last 40 lines of the output of
+`pip install`.
 
 ### Other Sage installations
 
-These routes have not been tested yet.
+The package is installed with pip into the Python of an existing Sage
+installation. Sage is not a declared dependency, because no single pip
+package name covers all the ways Sage is installed; importing
+`vertex_algebras` checks the Sage version. These routes have not been
+tested yet.
 
 - **Sage built from source** has the build tools, FLINT and GMP:
   `sage -pip install sage-vertex-algebras`.
 - **Sage from a Linux distribution** additionally needs the FLINT and GMP
   development headers (e.g. `flint-devel`) and a C++17 compiler from the
   distribution.
-
-### Checking the installation
-
-```
-sage -c "import vertex_algebras; print(vertex_algebras.__version__)"
-python -m sage.doctest --long "$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')"
-```
-
-The second command runs all the examples and tests of the documentation
-(a minute or two; add `-p 4` to use four processes).
-
-When reporting a problem, include the output of `sage --version`,
-`uname -sm`, and the last 40 lines of the failing build or test run.
 
 ### From the repository (for development)
 
