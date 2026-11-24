@@ -94,13 +94,14 @@ There are three ways to install the package:
   use conda or have Sage installed.
 - **From the repository**: for development.
 
-Then come upgrading, uninstalling, and the common problems.
+The sections after them apply whichever way you installed: using the
+notebooks, testing the installation, upgrading, uninstalling, and
+troubleshooting (what to do if you get stuck).
 
 ### Quick install
 
 The script `install.sh` works on Linux, on macOS and on Windows (in the
-Windows Subsystem for Linux, see below). Asking before each one, it
-installs:
+Windows Subsystem for Linux). Asking before each one, it installs:
 
 1. on macOS, Apple's Command Line Tools, which the compiler of step 4
    needs;
@@ -117,7 +118,7 @@ It needs no administrator rights and does not change your shell settings.
 What you decline is not installed, and what is there already is used, not
 changed.
 
-The script runs in a terminal. On **Linux**, open a terminal (on Ubuntu:
+**Step 1: open a terminal.** On **Linux**, open a terminal (on Ubuntu:
 Ctrl+Alt+T); on **macOS**, open the Terminal app (in Applications →
 Utilities).
 
@@ -138,22 +139,20 @@ PowerShell. Microsoft's guide
 [Install WSL](https://learn.microsoft.com/en-us/windows/wsl/install) has
 more details.
 
-**For any of the above operating systems,** once you have a terminal
-open, download the script and run it:
+**Step 2: download the script and run it**, on any of the systems above:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/simonjwood/vertexalgebras/main/install.sh
 bash install.sh
 ```
 
-Answer each question with `y` (yes) or `n` (no) and Enter.
-`bash install.sh --help` lists the options, for example `--notebooks
-FOLDER` for another notebook folder. On macOS without the Command Line
-Tools, the script opens Apple's installer for them and stops: when that
-has finished, run `bash install.sh` again.
+**Step 3: answer its questions** with `y` (yes) or `n` (no) and Enter.
+On macOS without the Command Line Tools, the script opens Apple's
+installer for them and stops: when that has finished, run
+`bash install.sh` again.
 
-At the end, the script shows the commands that start the notebooks.
-With the defaults they are:
+**Step 4: start the notebooks.** At the end, the script shows the
+commands for this. With the defaults they are:
 
 ```bash
 source ~/miniforge3/bin/activate sage
@@ -161,51 +160,13 @@ cd ~/vertex-algebra-notebooks
 sage -n jupyter
 ```
 
-The first command switches on the conda environment `sage`: the prompt
-then begins with `(sage)`. Type it first in every new terminal; `conda
-deactivate` switches the environment off again. (If the script used a
-conda that was installed already, the command names its folder instead
-of `~/miniforge3`.)
-
-The last command opens Jupyter in your web browser, with the list of
-notebooks; if it does not, copy into the browser the address starting
-with `http://localhost:8888/` that the terminal prints, with its `token=`
-part. On Windows this is usually needed: select the address in the
-Ubuntu window and press Ctrl+Shift+C to copy it. Click the first
-notebook, `01_getting_started.ipynb`. The kernel in the top right corner
-should read "SageMath 10.x" (if Jupyter asks, choose SageMath). Run the
-cells one after another with Shift+Enter. The terminal must stay open
-while you work; to stop Jupyter, press Ctrl+C in it twice.
-
-The notebook folder is yours: change the notebooks as you like; the
-script and later upgrades never overwrite it. Besides the notebooks it
-holds their `README.md` (a guide to them) and the test suite, in the
-subfolder `tests`. On Windows, keep it in the Linux home folder (`~`)
-rather than in the Windows folders under `/mnt/c`, which are much slower
-from WSL; in Windows' File Explorer, the Linux home folder is under
-"Linux" → "Ubuntu" → `home` → your Linux user name.
-
-To use Sage without Jupyter, type `sage` (after the `source` command): it
-starts Sage's prompt, `sage:`; leave it with `quit` (or Ctrl+D).
-
-**Optional: the test suite.** The platform report runs the whole test
-suite, with the C++ engines and in pure Python, and writes one file with
-the results and a description of your system: the file to send when
-something does not work. It takes 15–30 minutes:
-
-```bash
-source ~/miniforge3/bin/activate sage
-cd ~/vertex-algebra-notebooks
-bash tests/platform_report.sh
-```
-
-The report is the file `platform_report_<date>_<time>.txt` in that
-folder; its last lines say `ALL PASSED` or list what failed.
+Jupyter opens in your web browser; "Using the notebooks" below continues
+from there.
 
 ### With conda and pip
 
 Sage 10.10 or later from conda-forge, the C++ compiler and pkg-config in
-one environment, then the package:
+one environment, then the package and a copy of the example notebooks:
 
 ```bash
 conda create -n sage -c conda-forge --override-channels "sage>=10.10" cxx-compiler pkg-config
@@ -218,26 +179,15 @@ sage -n jupyter
 
 - In an existing environment with Sage 10.10 or later, add the compiler
   with `conda install -c conda-forge --override-channels cxx-compiler
-  pkg-config`.
+  pkg-config`, then continue from `pip install`.
+- On macOS, the compiler needs Apple's Command Line Tools
+  (`xcode-select --install`).
 - `--no-cache-dir` makes pip compile the package for this environment:
   otherwise pip may reuse a build from its cache, compiled against the
   FLINT of another environment.
 - `python -m vertex_algebras.examples FOLDER` copies the example
   notebooks and the test suite to `FOLDER`, any path that does not exist
   yet.
-- On macOS, the compiler needs Apple's Command Line Tools
-  (`xcode-select --install`). If you also use Homebrew, check that FLINT
-  and GMP come from the environment: in the output of
-  `otool -L "$(python -c 'import vertex_algebras._universal_engine as m; print(m.__file__)')"`,
-  the `libflint` and `libgmp` lines should start with `@rpath/` or point
-  into the environment.
-- The examples and tests of the documentation, in the files of the
-  installed package (a few minutes; add `-p 4` after `--long` for four
-  processes): `python -m sage.doctest --long "$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')"/*.py`.
-  Near the end it should say `All tests passed!`. With `-p`, Sage may
-  then warn that `pytest-xdist` is not found; that warning is harmless.
-  (Given the package's folder instead of its files, Sage also runs
-  pytest, which finds no tests in this package and says `no tests ran`.)
 
 **Other Sage installations.** The package is installed with pip into the
 Python of an existing Sage installation. Sage is not a declared
@@ -264,8 +214,79 @@ pip install --no-build-isolation -e .
 `-e` makes an editable install: after a `git pull`, changed Python files
 take effect at once, and changed C++ or Cython files are recompiled at the
 next import. `--no-build-isolation` builds with the environment's own
-tools and libraries. `tests/run_all.sh` then runs the whole test suite
-(about ten minutes).
+tools and libraries. The notebooks are in the folder `examples` of the
+clone.
+
+### Using the notebooks
+
+In every new terminal, first switch on the Sage environment:
+
+```bash
+source ~/miniforge3/bin/activate sage
+```
+
+(or `conda activate sage`, if conda is set up in your shell). The prompt
+then begins with `(sage)`; `conda deactivate` switches the environment
+off again. If the quick install used a conda that was installed already,
+the command at the end of the script names its folder instead of
+`~/miniforge3`.
+
+Then go to the notebook folder and start Jupyter:
+
+```bash
+cd ~/vertex-algebra-notebooks
+sage -n jupyter
+```
+
+Jupyter opens in your web browser with the list of notebooks (if it does
+not, see "Troubleshooting"). Click the first notebook,
+`01_getting_started.ipynb`. The kernel in the top right corner should
+read "SageMath 10.x" (if Jupyter asks, choose SageMath). Run the cells
+one after another with Shift+Enter. The terminal must stay open while you
+work; to stop Jupyter, press Ctrl+C in it twice.
+
+The notebook folder is yours: change the notebooks as you like; the
+script and later upgrades never overwrite it. Besides the notebooks it
+holds their `README.md` (a guide to them) and the test suite, in the
+subfolder `tests`.
+
+To use Sage without Jupyter, type `sage` (with the environment switched
+on): it starts Sage's prompt, `sage:`; leave it with `quit` (or Ctrl+D).
+
+### Testing the installation
+
+Optional, but useful, and the first thing to do when something does not
+work. Switch on the Sage environment first, as above.
+
+**The platform report** runs the whole test suite, with the C++ engines
+and in pure Python, and writes one file with the results and a
+description of your system: the file to send when something does not
+work. It takes 15–30 minutes. In the notebook folder (or in a clone of
+the repository):
+
+```bash
+cd ~/vertex-algebra-notebooks
+bash tests/platform_report.sh
+```
+
+The report is the file `platform_report_<date>_<time>.txt` in that
+folder; its last lines say `ALL PASSED` or list what failed.
+
+**The doctests alone**, the examples and tests of the documentation in
+the files of the installed package (a few minutes; add `-p 4` after
+`--long` for four processes):
+
+```bash
+python -m sage.doctest --long "$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')"/*.py
+```
+
+Near the end it should say `All tests passed!`. With `-p`, Sage may then
+warn that `pytest-xdist` is not found; that warning is harmless. (Given
+the package's folder instead of its files, Sage also runs pytest, which
+finds no tests in this package and says `no tests ran`.)
+
+**In a clone of the repository**, `tests/run_all.sh` runs the whole test
+suite (about ten minutes; see "Development" below).
 
 ### Upgrading
 
@@ -356,7 +377,7 @@ with `sudo rm -rf /Library/Developer/CommandLineTools`. On Windows,
 WSL, with all files in it (the notebook folder too); WSL itself is then
 removed under Settings → Apps.
 
-### Common problems
+### Troubleshooting
 
 Two things cause most problems:
 
@@ -368,9 +389,30 @@ Two things cause most problems:
   another installation (Anaconda Navigator, a system Jupyter, VS Code with
   another Python) does not see the package.
 
+Other hints:
+
+- **Jupyter does not open in the browser.** Copy into the browser the
+  address starting with `http://localhost:8888/` that the terminal
+  prints, with its `token=` part. On Windows this is usually needed:
+  select the address in the Ubuntu window and press Ctrl+Shift+C to copy
+  it.
+- **On Windows, the notebooks are slow to open or save.** Keep the
+  notebook folder in the Linux home folder (`~`) rather than in the
+  Windows folders under `/mnt/c`, which are much slower from WSL. In
+  Windows' File Explorer, the Linux home folder is under "Linux" →
+  "Ubuntu" → `home` → your Linux user name.
+- **Options of the script.** `bash install.sh --help` lists them, for
+  example `--notebooks FOLDER` for another notebook folder, or `--env
+  NAME` for another environment name.
+- **macOS with Homebrew.** If you also use Homebrew, check that FLINT and
+  GMP come from the Sage environment: in the output of
+  `otool -L "$(python -c 'import vertex_algebras._universal_engine as m; print(m.__file__)')"`,
+  the `libflint` and `libgmp` lines should start with `@rpath/` or point
+  into the environment.
+
 If something else goes wrong, please
 [open an issue](https://github.com/simonjwood/vertexalgebras/issues) and
-attach the platform report (see "Optional: the test suite" above). If the
+attach the platform report (see "Testing the installation" above). If the
 installation itself failed, so that there is nothing to test, include
 instead the whole output of `bash install.sh` (or, by hand, the output of
 `sage --version` and `uname -sm` and the last 40 lines of the output of
