@@ -4,7 +4,7 @@ cff-version: 1.2.0
 message: "If this software was useful in your research and you would like to credit it, please cite it as below."
 title: "sage-vertex-algebras: vertex algebras for SageMath"
 type: software
-version: 0.1.0a4
+version: 0.1.0a5
 license: GPL-2.0-or-later
 repository-code: "https://github.com/simonjwood/vertexalgebras"
 authors:

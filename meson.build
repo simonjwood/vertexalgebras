@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) Cardiff University 2026
 project('sage-vertex-algebras', 'c', 'cpp', 'cython',
-  version: '0.1.0a4',
+  version: '0.1.0a5',
   meson_version: '>= 1.1',
   default_options: ['cpp_std=c++17'],
 )
