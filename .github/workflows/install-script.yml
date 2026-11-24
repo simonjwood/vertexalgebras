@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright (C) Cardiff University 2026
+#
+# The quick install of the README on clean runners: install.sh --yes
+# installs Miniforge, creates the environment with Sage, installs the
+# package (built from this commit) and copies the notebooks; then the first
+# notebook runs.  Slow (a fresh 2 GB Sage environment per system), so only
+# when install.sh or this file change, weekly and by hand.
+
+name: install script
+
+on:
+  push:
+    branches: [main]
+    paths: [install.sh, .github/workflows/install-script.yml]
+  pull_request:
+    paths: [install.sh, .github/workflows/install-script.yml]
+  workflow_dispatch:
+  schedule:
+    - cron: '43 4 * * 1'      # Mondays, after the tests workflow
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v5
+      - name: bash install.sh --yes
+        # A Miniforge of its own (the runners may have another conda), and
+        # the package from this commit (--package; users get it from PyPI).
+        run: |
+          bash install.sh --yes --conda "$RUNNER_TEMP/miniforge3" \
+            --package "$GITHUB_WORKSPACE" --notebooks "$RUNNER_TEMP/notebooks"
+      - name: Run again (nothing to do)
+        run: |
+          bash install.sh --yes --conda "$RUNNER_TEMP/miniforge3" \
+            --package "$GITHUB_WORKSPACE" --notebooks "$RUNNER_TEMP/notebooks" \
+            | tail -15
+      - name: The first notebook runs
+        run: |
+          source "$RUNNER_TEMP/miniforge3/bin/activate" sage
+          cd "$RUNNER_TEMP/notebooks"
+          jupyter nbconvert --to notebook --execute \
+            --ExecutePreprocessor.timeout=600 --output-dir "$RUNNER_TEMP/out" \
+            01_getting_started.ipynb

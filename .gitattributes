@@ -1,5 +1,7 @@
 # Left out of the source distribution (meson-python builds it with
-# `meson dist`, i.e. `git archive`, which honours export-ignore).
+# `meson dist`, i.e. `git archive`, which honours export-ignore).  install.sh
+# installs the package from PyPI, so it is of no use inside it.
 .gitattributes export-ignore
 .gitignore export-ignore
 .github/ export-ignore
+install.sh export-ignore
