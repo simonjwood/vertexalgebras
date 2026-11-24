@@ -231,10 +231,13 @@ sage -n jupyter
   `otool -L "$(python -c 'import vertex_algebras._universal_engine as m; print(m.__file__)')"`,
   the `libflint` and `libgmp` lines should start with `@rpath/` or point
   into the environment.
-- The examples and tests of the documentation (a minute or two; add
-  `-p 4` after `--long` for four processes; the last line should be
-  `All tests passed!`):
-  `python -m sage.doctest --long "$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')"`
+- The examples and tests of the documentation, in the files of the
+  installed package (a few minutes; add `-p 4` after `--long` for four
+  processes): `python -m sage.doctest --long "$(python -c 'import vertex_algebras, os; print(os.path.dirname(vertex_algebras.__file__))')"/*.py`.
+  Near the end it should say `All tests passed!`. With `-p`, Sage may
+  then warn that `pytest-xdist` is not found; that warning is harmless.
+  (Given the package's folder instead of its files, Sage also runs
+  pytest, which finds no tests in this package and says `no tests ran`.)
 
 **Other Sage installations.** The package is installed with pip into the
 Python of an existing Sage installation. Sage is not a declared
