@@ -6,8 +6,7 @@
 #   test      install that sdist into a conda-forge Sage and run the
 #             installed package's doctests (--long): Linux x86_64 / arm64,
 #             the oldest and newest Sage and Python
-#   macos     the same on macOS arm64 / Intel, only when started by hand
-#             (Actions -> tests -> Run workflow)
+#   macos     the same on macOS arm64 / Intel
 #   full      the developer suite on Linux: editable install,
 #             tests/run_all.sh (doctests + every tests/*.sage script) and
 #             tests/run_all.sh --fallback (pure Python)
@@ -117,7 +116,6 @@ jobs:
 
   macos:
     needs: sdist
-    if: github.event_name == 'workflow_dispatch'
     name: ${{ matrix.os }}, Sage ${{ matrix.sage }}, Python ${{ matrix.python }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 150
