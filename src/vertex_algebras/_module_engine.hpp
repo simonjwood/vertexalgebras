@@ -251,10 +251,12 @@ struct QValueTable {
 // and 20 per term (sizeof(fmpq) + 4), against ~190 and ~32 with ConcCache
 // of vectors (map node, shared_ptr, control block, vector header, malloc
 // padding): the module engine is limited by memory (W(2,3), P(0) at depth 5).
-// Over QQ the coefficients are interned instead (QValueTable; unless
-// VERTEX_ALGEBRAS_INTERN=0 when the cache is made): a term is then the key
-// and a 32-bit value index, 8 bytes, plus each distinct value once; read
-// with View::at, which decodes into the caller's temporary.
+// Opt-in (VERTEX_ALGEBRAS_INTERN=1 when the cache is made; over QQ only):
+// the coefficients are interned instead (QValueTable), a term is then the
+// key and a 32-bit value index, 8 bytes, plus each distinct value once;
+// read with View::at, which decodes into the caller's temporary.  Memory
+// for speed (P(0) of W(2,3), depth 6: peak 30 -> 12.4 GB, 17% slower), so
+// not the default.
 template <class Ring>
 struct CompactCache {
     using C = typename Ring::E;
@@ -317,7 +319,7 @@ struct CompactCache {
     CompactCache() {
         if constexpr (CAN_INTERN) {
             const char *e = std::getenv("VERTEX_ALGEBRAS_INTERN");
-            if (!(e && std::string(e) == "0")) vt.reset(new QValueTable());
+            if (e && std::string(e) == "1") vt.reset(new QValueTable());
         }
     }
     CompactCache(const CompactCache &) = delete;

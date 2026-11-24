@@ -437,8 +437,9 @@ cdef class ModuleEngine:
         interned keys, words and (word, n) pairs, the terms held by the two
         caches, and the distinct values the caches store their rational
         coefficients as (each once, packed: ``'values'``, ``'value bytes'``;
-        0 unless over `\QQ`, or with ``VERTEX_ALGEBRAS_INTERN=0`` when the
-        engine was made).
+        0 unless over `\QQ` with ``VERTEX_ALGEBRAS_INTERN=1`` when the
+        engine was made: interning trades speed for memory, ~2.5x less and
+        ~15% slower for large modules, so it is opt-in).
 
         EXAMPLES::
 
@@ -455,9 +456,32 @@ cdef class ModuleEngine:
             sage: d = E.cache_sizes(); sorted(d)
             ['generator mode terms', 'generator modes', 'keys', 'value bytes', 'values',
              'word mode terms', 'word modes', 'word modes ids', 'words']
+            sage: d['keys'] >= 2, d['values']
+            (True, 0)
+
+        Interned coefficients give the same results, in the same order (key
+        ids are per engine: compare the keys)::
+
+            sage: import os
+            sage: def run():
+            ....:     E = ModuleEngine('q', 1, [0], [2], 1)
+            ....:     E.set_ope(0, 0, [[(((0, 1),), one(1))], [(L, one(2))], [],
+            ....:                      [((), one(1, 4))]])
+            ....:     E.set_top(1, [0])
+            ....:     E.set_zero_mode(0, [[(0, one(1, 16))]])
+            ....:     vs = [[(E.intern_key(m, 0), one(1))] for m in
+            ....:           [((0, -3), (0, -2), (0, -2)), ((0, -4), (0, -3), (0, -1)), ((0, -2),) * 4]]
+            ....:     T = [(0, n, i) for n in range(-1, 6) for i in range(3)]
+            ....:     r = E.act_many([[(L, one(1)), (((0, 0), (0, 0)), one(-3, 7))]], vs, T, 2)
+            ....:     return E, [[(E.key_of(k), c) for k, c in x] for x in r]
+            sage: E0, r0 = run()
+            sage: os.environ['VERTEX_ALGEBRAS_INTERN'] = '1'
+            sage: E1, r1 = run()
+            sage: del os.environ['VERTEX_ALGEBRAS_INTERN']
+            sage: r1 == r0, sum(map(len, r0)) > 50
+            (True, True)
+            sage: d = E1.cache_sizes()
             sage: 0 < d['values'] <= d['generator mode terms'] + d['word mode terms']
-            True
-            sage: d['keys'] >= 2
             True
         """
         s = self.e.cache_sizes()

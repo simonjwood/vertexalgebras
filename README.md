@@ -435,6 +435,10 @@ whole session; results do not depend on it.
   the faster split by the commutator formula; it is a developer switch for
   comparing the two orders, and the guarantees of induced modules do not
   depend on it.
+- `VERTEX_ALGEBRAS_INTERN=1` makes the C++ engine of induced modules over
+  `QQ` store each distinct coefficient of its caches once, packed: for
+  modules too large for memory (about 2.5 times less memory, about 15%
+  slower). Results do not depend on it.
 
 ## Acknowledgements
 
