@@ -42,7 +42,7 @@ AUTHORS:
 
 import re as _re
 
-#: The oldest SageMath release supported.
+#: The oldest SageMath release supported (also in install.sh and README.md).
 _MIN_SAGE = (10, 10)
 
 
