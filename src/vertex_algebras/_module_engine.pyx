@@ -435,7 +435,10 @@ cdef class ModuleEngine:
     def cache_sizes(self):
         """Entries of the generator-mode and word-mode caches, the numbers of
         interned keys, words and (word, n) pairs, the terms held by the two
-        caches.
+        caches, and the distinct values the caches store their rational
+        coefficients as (each once, packed: ``'values'``, ``'value bytes'``;
+        0 unless over `\QQ`, or with ``VERTEX_ALGEBRAS_INTERN=0`` when the
+        engine was made).
 
         EXAMPLES::
 
@@ -450,14 +453,16 @@ cdef class ModuleEngine:
             sage: v = E.intern_key((), 0)
             sage: _ = E.act_many([[(L, one(1))]], [[(v, one(1))]], [(0, 0, 0)])
             sage: d = E.cache_sizes(); sorted(d)
-            ['generator mode terms', 'generator modes', 'keys', 'word mode terms',
-             'word modes', 'word modes ids', 'words']
+            ['generator mode terms', 'generator modes', 'keys', 'value bytes', 'values',
+             'word mode terms', 'word modes', 'word modes ids', 'words']
+            sage: 0 < d['values'] <= d['generator mode terms'] + d['word mode terms']
+            True
             sage: d['keys'] >= 2
             True
         """
         s = self.e.cache_sizes()
         return dict(zip(['generator modes', 'word modes', 'keys', 'words', 'word modes ids',
-                         'generator mode terms', 'word mode terms'], s))
+                         'generator mode terms', 'word mode terms', 'values', 'value bytes'], s))
 
     def word_stats(self):
         """By word length (diagnostics): lookups of word modes, misses

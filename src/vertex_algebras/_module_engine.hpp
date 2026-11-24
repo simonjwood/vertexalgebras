@@ -28,6 +28,7 @@
 #include "_engine_base.hpp"
 #include <algorithm>
 #include <cstdlib>
+#include <cstring>
 #include <type_traits>
 #include <vector>
 
@@ -70,6 +71,177 @@ struct ModuleEngineBase {
 // floor(a / b) for b > 0
 inline long floor_div(long a, long b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
 
+// The distinct rational values of a CompactCache, each stored once, packed
+// (W(2,3), P(0) at depth 5: values are ~28% of the terms, with numerators of
+// median 54 and mean 96 bits; as fmpq each term took ~78 bytes, 20 + the
+// GMP integers and their allocations).  intern(q) gives a 32-bit index (the
+// shard in the top 6 bits), get(i, q) decodes.  A value is the bytes
+//   varint(2 * numerator length + sign), numerator, varint(denominator length), denominator
+// (lengths in bytes, little endian; denominator length 0 = 1), canonical as
+// fmpq is, so equal values have equal bytes.  Values live in per-shard byte
+// arenas, never moved; get reads without a lock: an index reaches a reader
+// only through a cache record published under that cache's lock, after the
+// value was written under the table's.
+struct QValueTable {
+    static constexpr size_t NS = 64, ARENA = 1u << 20, BLOCK = 1u << 16, NBLOCKS = 1u << 10;
+    static constexpr uint32_t LOCAL = 1u << 26;    // values per shard (NBLOCKS * BLOCK)
+    struct Shard {
+        std::mutex m;
+        std::vector<uint64_t> table;               // open addressing: hash32 << 32 | (local + 1), 0 empty
+        uint32_t count = 0;
+        std::vector<std::unique_ptr<uint8_t[]>> arenas;
+        size_t used = ARENA, bytes = 0;            // in the last arena
+        std::unique_ptr<std::unique_ptr<const uint8_t *[]>[]> blocks{new std::unique_ptr<const uint8_t *[]>[NBLOCKS]};
+    };
+    std::unique_ptr<Shard[]> shards{new Shard[NS]};
+
+    static void put_varint(std::vector<uint8_t> &b, size_t x) {
+        while (x >= 0x80) {
+            b.push_back((uint8_t)(x | 0x80));
+            x >>= 7;
+        }
+        b.push_back((uint8_t)x);
+    }
+    static size_t get_varint(const uint8_t *&p) {
+        size_t x = 0;
+        for (int sh = 0;; sh += 7) {
+            uint8_t c = *p++;
+            x |= (size_t)(c & 0x7F) << sh;
+            if (!(c & 0x80)) return x;
+        }
+    }
+    // |z| as little-endian bytes, without leading zeros
+    static void abs_bytes(std::vector<uint8_t> &out, const fmpz_t z) {
+        out.clear();
+        if (!COEFF_IS_MPZ(*z)) {
+            uint64_t u = (uint64_t)(*z < 0 ? -*z : *z);
+            while (u) {
+                out.push_back((uint8_t)u);
+                u >>= 8;
+            }
+            return;
+        }
+        const __mpz_struct *m = COEFF_TO_PTR(*z);
+        int n = std::abs(m->_mp_size);
+        for (int i = 0; i < n; i++) {
+            uint64_t l = (uint64_t)m->_mp_d[i];
+            for (int b = 0; b < 8; b++) out.push_back((uint8_t)(l >> (8 * b)));
+        }
+        while (!out.empty() && !out.back()) out.pop_back();
+    }
+    static void encode(std::vector<uint8_t> &out, const fmpq_t q) {
+        thread_local std::vector<uint8_t> nb, db;
+        abs_bytes(nb, fmpq_numref(q));
+        if (fmpz_is_one(fmpq_denref(q)))
+            db.clear();
+        else
+            abs_bytes(db, fmpq_denref(q));
+        out.clear();
+        put_varint(out, 2 * nb.size() + (fmpz_sgn(fmpq_numref(q)) < 0));
+        out.insert(out.end(), nb.begin(), nb.end());
+        put_varint(out, db.size());
+        out.insert(out.end(), db.begin(), db.end());
+    }
+    static void set_bytes(fmpz_t z, const uint8_t *p, size_t len) {
+        if (len <= 8) {
+            uint64_t u = 0;
+            for (size_t b = 0; b < len; b++) u |= (uint64_t)p[b] << (8 * b);
+            fmpz_set_ui(z, (ulong)u);
+            return;
+        }
+        thread_local std::vector<ulong> limbs;
+        limbs.assign((len + 7) / 8, 0);
+        for (size_t b = 0; b < len; b++) limbs[b / 8] |= (ulong)p[b] << (8 * (b % 8));
+        fmpz_set_ui_array(z, limbs.data(), (slong)limbs.size());
+    }
+    static size_t encoded_size(const uint8_t *p) {
+        const uint8_t *q = p;
+        size_t nl = get_varint(q) >> 1;
+        q += nl;
+        size_t dl = get_varint(q);
+        return (size_t)(q - p) + dl;
+    }
+    static uint64_t hash_bytes(const std::vector<uint8_t> &b) {
+        uint64_t h = 0xCBF29CE484222325ULL;
+        for (uint8_t c : b) h = (h ^ c) * 0x100000001B3ULL;
+        return h ^ (h >> 31);
+    }
+    const uint8_t *ptr(uint32_t i) const {
+        const Shard &s = shards[i >> 26];
+        uint32_t l = i & (LOCAL - 1);
+        return s.blocks[l / BLOCK][l % BLOCK];
+    }
+    void get(uint32_t i, fmpq_t q) const {
+        const uint8_t *p = ptr(i);
+        size_t ns = get_varint(p);
+        set_bytes(fmpq_numref(q), p, ns >> 1);
+        if (ns & 1) fmpz_neg(fmpq_numref(q), fmpq_numref(q));
+        p += ns >> 1;
+        size_t dl = get_varint(p);
+        if (dl)
+            set_bytes(fmpq_denref(q), p, dl);
+        else
+            fmpz_one(fmpq_denref(q));
+    }
+    uint32_t intern(const fmpq_t q) {
+        thread_local std::vector<uint8_t> b;
+        encode(b, q);
+        uint64_t h = hash_bytes(b);
+        size_t si = (size_t)(h >> 58);
+        uint32_t h32 = (uint32_t)h;
+        Shard &s = shards[si];
+        std::lock_guard<std::mutex> g(s.m);
+        if ((size_t)(s.count + 1) * 10 > s.table.size() * 7) {   // load <= 0.7
+            size_t n = std::max<size_t>(64, s.table.size() * 2);
+            std::vector<uint64_t> old;
+            old.swap(s.table);
+            s.table.assign(n, 0);
+            for (uint64_t e : old)
+                if (e) {
+                    size_t j = (size_t)(e >> 32) & (n - 1);
+                    while (s.table[j]) j = (j + 1) & (n - 1);
+                    s.table[j] = e;
+                }
+        }
+        size_t mask = s.table.size() - 1, j = h32 & mask;
+        for (;; j = (j + 1) & mask) {
+            uint64_t e = s.table[j];
+            if (!e) break;
+            if ((uint32_t)(e >> 32) != h32) continue;
+            uint32_t l = (uint32_t)e - 1;
+            const uint8_t *p = s.blocks[l / BLOCK][l % BLOCK];
+            if (encoded_size(p) == b.size() && !std::memcmp(p, b.data(), b.size()))
+                return (uint32_t)(si << 26) | l;
+        }
+        uint32_t l = s.count;
+        if (l >= LOCAL) throw std::length_error("value table shard full");
+        if (s.used + b.size() > ARENA || s.arenas.empty()) {
+            s.arenas.emplace_back(new uint8_t[std::max(ARENA, b.size())]);
+            s.used = 0;
+        }
+        uint8_t *dst = s.arenas.back().get() + s.used;
+        std::memcpy(dst, b.data(), b.size());
+        s.used += b.size();
+        if (b.size() > ARENA) s.used = ARENA;     // a value of its own: the next starts a new arena
+        s.bytes += b.size();
+        if (!s.blocks[l / BLOCK]) s.blocks[l / BLOCK].reset(new const uint8_t *[BLOCK]);
+        s.blocks[l / BLOCK][l % BLOCK] = dst;
+        s.table[j] = ((uint64_t)h32 << 32) | (uint64_t)(l + 1);
+        s.count++;
+        return (uint32_t)(si << 26) | l;
+    }
+    // (values, bytes of the packed values)
+    std::pair<size_t, size_t> sizes() const {
+        size_t n = 0, b = 0;
+        for (size_t i = 0; i < NS; i++) {
+            std::lock_guard<std::mutex> g(shards[i].m);
+            n += shards[i].count;
+            b += shards[i].bytes;
+        }
+        return {n, b};
+    }
+};
+
 // A memo shared by threads, as ConcCache (get(key, compute) computes each
 // value once; other threads wait; a failed computation is redone by a later
 // call, its waiters throw EntryFailed), but compact: the values (lists of
@@ -79,15 +251,32 @@ inline long floor_div(long a, long b) { return a >= 0 ? a / b : -((-a + b - 1) /
 // and 20 per term (sizeof(fmpq) + 4), against ~190 and ~32 with ConcCache
 // of vectors (map node, shared_ptr, control block, vector header, malloc
 // padding): the module engine is limited by memory (W(2,3), P(0) at depth 5).
+// Over QQ the coefficients are interned instead (QValueTable; unless
+// VERTEX_ALGEBRAS_INTERN=0 when the cache is made): a term is then the key
+// and a 32-bit value index, 8 bytes, plus each distinct value once; read
+// with View::at, which decodes into the caller's temporary.
 template <class Ring>
 struct CompactCache {
     using C = typename Ring::E;
     using Flat = std::vector<std::pair<uint32_t, C>>;
+    static constexpr bool CAN_INTERN = std::is_same<Ring, RingQ>::value;
     struct View {
         const uint32_t *k = nullptr;
-        const C *c = nullptr;
+        const C *c = nullptr;                      // the coefficients, or
+        const uint32_t *v = nullptr;               // their value indices in
+        const QValueTable *vt = nullptr;           // this table
         uint32_t n = 0;
         bool empty() const { return n == 0; }
+        // the j-th coefficient: stored, or decoded into tmp
+        const C &at(uint32_t j, C &tmp) const {
+            if constexpr (CAN_INTERN) {
+                if (v) {
+                    vt->get(v[j], tmp.p);
+                    return tmp;
+                }
+            }
+            return c[j];
+        }
     };
     enum : uint8_t { COMPUTING = 0, READY = 1, FAILED = 2 };
     struct Rec {
@@ -96,7 +285,8 @@ struct CompactCache {
     };
     struct Chunk {
         uint32_t *k;
-        C *c;
+        C *c;                                      // nullptr when interning
+        uint32_t *v;                               // value indices (interning)
         uint32_t used, cap;
     };
     struct Shard {
@@ -122,15 +312,24 @@ struct CompactCache {
     // clock ticking once per lookup, see Shard::last; off, it costs nothing
     bool prof = false;
     std::atomic<uint64_t> clock{0};
+    std::unique_ptr<QValueTable> vt;               // interning (over QQ)
 
-    CompactCache() = default;
+    CompactCache() {
+        if constexpr (CAN_INTERN) {
+            const char *e = std::getenv("VERTEX_ALGEBRAS_INTERN");
+            if (!(e && std::string(e) == "0")) vt.reset(new QValueTable());
+        }
+    }
     CompactCache(const CompactCache &) = delete;
     CompactCache &operator=(const CompactCache &) = delete;
     ~CompactCache() {
         for (size_t i = 0; i < NS; i++)
             for (Chunk &ch : shards[i].chunks) {
-                for (uint32_t j = 0; j < ch.used; j++) ch.c[j].~C();
-                ::operator delete(static_cast<void *>(ch.c));
+                if (ch.c) {
+                    for (uint32_t j = 0; j < ch.used; j++) ch.c[j].~C();
+                    ::operator delete(static_cast<void *>(ch.c));
+                }
+                delete[] ch.v;
                 delete[] ch.k;
             }
     }
@@ -169,13 +368,23 @@ struct CompactCache {
         s.tvals[i] = rec;
         s.tcount++;
     }
-    static View view(const Shard &s, const Rec &r) {
+    View view(const Shard &s, const Rec &r) const {
         if (!r.len) return View();
         const Chunk &ch = s.chunks[r.chunk];
-        return View{ch.k + r.off, ch.c + r.off, r.len};
+        View w;
+        w.k = ch.k + r.off;
+        w.n = r.len;
+        if (ch.c)
+            w.c = ch.c + r.off;
+        else {
+            w.v = ch.v + r.off;
+            w.vt = vt.get();
+        }
+        return w;
     }
-    // with s.m held: move the terms of f into the arena
-    static void place(Shard &s, uint32_t ri, Flat &&f) {
+    // with s.m held: move the terms of f into the arena (ids: f's value
+    // indices when interning, found before the lock was taken)
+    void place(Shard &s, uint32_t ri, Flat &&f, const std::vector<uint32_t> &ids) {
         uint32_t n = (uint32_t)f.size();
         Rec &r = s.recs[ri];
         r.len = n;
@@ -184,7 +393,8 @@ struct CompactCache {
                 uint32_t cap = std::max(n, CHUNK);
                 Chunk ch;
                 ch.k = new uint32_t[cap];
-                ch.c = static_cast<C *>(::operator new(sizeof(C) * (size_t)cap));
+                ch.c = vt ? nullptr : static_cast<C *>(::operator new(sizeof(C) * (size_t)cap));
+                ch.v = vt ? new uint32_t[cap] : nullptr;
                 ch.used = 0;
                 ch.cap = cap;
                 s.chunks.push_back(ch);
@@ -194,7 +404,10 @@ struct CompactCache {
             r.off = ch.used;
             for (uint32_t j = 0; j < n; j++) {
                 ch.k[ch.used + j] = f[j].first;
-                new (&ch.c[ch.used + j]) C(std::move(f[j].second));
+                if (vt)
+                    ch.v[ch.used + j] = ids[j];
+                else
+                    new (&ch.c[ch.used + j]) C(std::move(f[j].second));
             }
             ch.used += n;
             s.terms += n;
@@ -234,8 +447,15 @@ struct CompactCache {
         s.owners[ri] = std::this_thread::get_id();
         lk.unlock();
         Flat f;
+        std::vector<uint32_t> ids;
         try {
             f = compute();
+            if constexpr (CAN_INTERN) {
+                if (vt) {
+                    ids.reserve(f.size());
+                    for (auto &kv : f) ids.push_back(vt->intern(kv.second.p));
+                }
+            }
         } catch (...) {
             lk.lock();
             s.recs[ri].state = FAILED;
@@ -245,7 +465,7 @@ struct CompactCache {
             throw;
         }
         lk.lock();
-        place(s, ri, std::move(f));
+        place(s, ri, std::move(f), ids);
         s.owners.erase(ri);
         View v = view(s, s.recs[ri]);
         lk.unlock();
@@ -301,6 +521,10 @@ struct CompactCache {
             for (const Rec &r : shards[i].recs)
                 if (r.state == READY) f(view(shards[i], r));
     }
+    // (distinct values, their packed bytes); (0, 0) unless interning
+    std::pair<size_t, size_t> value_sizes() const {
+        return vt ? vt->sizes() : std::pair<size_t, size_t>(0, 0);
+    }
 };
 
 // Statistics of the rational coefficients of the lists of a CompactCache
@@ -331,12 +555,15 @@ void rational_stats(const Cache &cache, std::vector<size_t> &out) {
         for (int i = 0; i < std::abs(m->_mp_size); i++) h = mix(h, (uint64_t)m->_mp_d[i]);
         return h;
     };
+    RingQ R;
+    RingQ::E tmp(R), first(R);
     cache.for_each([&](const typename Cache::View &v) {
         lists++;
         fmpz_one(l);
         bool same = true;
+        if (v.n) first = v.at(0, tmp);
         for (uint32_t j = 0; j < v.n; j++) {
-            const fmpq *q = v.c[j].p;
+            const fmpq *q = v.at(j, tmp).p;
             size_t bn = fmpz_bits(fmpq_numref(q)), bd = fmpz_bits(fmpq_denref(q));
             terms++;
             hn[std::min<size_t>(bn, 1023)]++;
@@ -347,13 +574,13 @@ void rational_stats(const Cache &cache, std::vector<size_t> &out) {
             limbs += limbs_of(fmpq_numref(q)) + limbs_of(fmpq_denref(q));
             if (fmpz_is_one(fmpq_denref(q))) den1++;
             hashes.push_back(mix(hash_of(fmpq_numref(q)), hash_of(fmpq_denref(q))));
-            if (j && !fmpz_equal(fmpq_denref(q), fmpq_denref(v.c[0].p))) same = false;
+            if (j && !fmpz_equal(fmpq_denref(q), fmpq_denref(first.p))) same = false;
             fmpz_lcm(l, l, fmpq_denref(q));
         }
         if (same) one_den++;
         bits_cd += fmpz_bits(l);
         for (uint32_t j = 0; j < v.n; j++) {
-            const fmpq *q = v.c[j].p;
+            const fmpq *q = v.at(j, tmp).p;
             fmpz_divexact(t, l, fmpq_denref(q));
             fmpz_mul(t, t, fmpq_numref(q));
             bits_cd += fmpz_bits(t);
@@ -550,9 +777,9 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
     }
     void add_flat(Elem &dst, const View &src, const C &s) const {
         if (src.empty() || R.is_zero(s)) return;
-        C t(R);
+        C t(R), u(R);
         for (uint32_t j = 0; j < src.n; j++) {
-            R.mul(t, s, src.c[j]);
+            R.mul(t, s, src.at(j, u));
             acc(dst, src.k[j], t);
         }
     }
@@ -603,10 +830,10 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         int s = (par[i] & par[ix] & 1) ? -1 : 1;
         Elem r = commutator(i, m2, ix, mx, rest);
         View inner = gen_act(i, m2, rest);
-        C t(R);
+        C t(R), u(R);
         for (uint32_t j = 0; j < inner.n; j++) {
             View o = gen_act(ix, mx, inner.k[j]);
-            R.mul_si(t, inner.c[j], s);
+            R.mul_si(t, inner.at(j, u), s);
             add_flat(r, o, t);
         }
         return flat(std::move(r));
@@ -674,9 +901,10 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
             View e = gen_act(g, m2, key);
             Flat r;
             r.reserve(e.n);
+            C u(R);
             for (uint32_t j = 0; j < e.n; j++) {     // distinct keys: no accumulation
                 C t(R);
-                R.mul_fmpz(t, e.c[j], f.v);
+                R.mul_fmpz(t, e.at(j, u), f.v);
                 if (!R.is_zero(t)) r.emplace_back(e.k[j], std::move(t));
             }
             return r;
@@ -686,10 +914,14 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         uint32_t B = words[w].tail;
         int s = (words[xw].par & words[B].par & 1) ? -1 : 1;
         Elem res;
+        C u(R);
         long j1 = std::max(nmax(B, key) - n + 1, 0L);
         for (long j = 0; j < j1; j++) {
             View bv = word_act(B, n + j, key);
-            for (uint32_t q = 0; q < bv.n; q++) add_flat(res, word_act(xw, -1 - j, bv.k[q]), bv.c[q]);
+            for (uint32_t q = 0; q < bv.n; q++) {
+                View xv = word_act(xw, -1 - j, bv.k[q]);
+                add_flat(res, xv, bv.at(q, u));
+            }
         }
         long j2 = nmax(xw, key);
         C t(R);
@@ -709,7 +941,10 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         }
         for (long j = 0; j < J; j++) {
             View bv = word_act(B, n - 1 - j, key);
-            for (uint32_t q = 0; q < bv.n; q++) add_flat(res, word_act(xw, j, bv.k[q]), bv.c[q]);
+            for (uint32_t q = 0; q < bv.n; q++) {
+                View xv = word_act(xw, j, bv.k[q]);
+                add_flat(res, xv, bv.at(q, u));
+            }
         }
         if (J > 0) {
             Z bc;
@@ -725,7 +960,7 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         for (long j = J; j <= j2; j++) {
             View xv = word_act(xw, j, key);
             for (uint32_t q = 0; q < xv.n; q++) {
-                R.mul_si(t, xv.c[q], s);
+                R.mul_si(t, xv.at(q, u), s);
                 add_flat(res, word_act(B, n - 1 - j, xv.k[q]), t);
             }
         }
@@ -905,8 +1140,9 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         return out;
     }
     std::vector<size_t> cache_sizes() const override {
+        auto gv = gen_cache.value_sizes(), wv = word_cache.value_sizes();
         return {gen_cache.size(), word_cache.size(), (size_t)monos.n, (size_t)words.n, (size_t)wns.n,
-                gen_cache.terms(), word_cache.terms()};
+                gen_cache.terms(), word_cache.terms(), gv.first + wv.first, gv.second + wv.second};
     }
 };
 
