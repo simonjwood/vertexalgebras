@@ -53,6 +53,8 @@ cdef extern from "_module_engine.hpp" namespace "vae":
                                   int, PollFn) except +_raise_error nogil
         vector[size_t] cache_sizes()
         vector[size_t] word_stats()
+        vector[size_t] cache_profile(int)
+        vector[size_t] coefficient_stats(int)
     ModuleEngineBase *make_module_engine(string, int, vector[int], vector[long], long, long,
                                          unsigned long, const CoefData &) except +_raise_error
 
@@ -480,3 +482,99 @@ cdef class ModuleEngine:
         """
         s = self.e.word_stats()
         return {L: (s[3 * L], s[3 * L + 1], s[3 * L + 2]) for L in range(len(s) // 3) if s[3 * L]}
+
+    def cache_profile(self, cache='word modes'):
+        """When the cached lists of ``cache`` (``'word modes'`` or
+        ``'generator modes'``) are looked up again (diagnostics, for memory
+        offloading): ``None`` unless the environment variable
+        ``VERTEX_ALGEBRAS_CACHE_PROFILE=1`` was set when the engine was made.
+        The clock ticks once per lookup; a dictionary with ``'clock'`` (the
+        lookups so far), ``'reuse'`` (the intervals between two lookups of a
+        list, by bit length ``b``: ``2^(b-1) <= interval < 2^b``, as pairs
+        (lookups, terms of the list looked up)) and ``'age'`` (the time
+        since the last lookup of each stored list, now, by bit length, as
+        pairs (lists, terms)).  Only bit lengths that occur.
+
+        EXAMPLES::
+
+            sage: import os
+            sage: from vertex_algebras._module_engine import ModuleEngine
+            sage: one = lambda n, d=1: [((), n, d)]
+            sage: L = ((0, 0),)
+            sage: def engine():
+            ....:     E = ModuleEngine('q', 1, [0], [2], 1)
+            ....:     E.set_ope(0, 0, [[(((0, 1),), one(1))], [(L, one(2))], [],
+            ....:                      [((), one(1, 4))]])
+            ....:     E.set_top(1, [0])
+            ....:     E.set_zero_mode(0, [[(0, one(1, 16))]])
+            ....:     return E
+            sage: engine().cache_profile() is None
+            True
+            sage: os.environ['VERTEX_ALGEBRAS_CACHE_PROFILE'] = '1'
+            sage: E = engine()
+            sage: del os.environ['VERTEX_ALGEBRAS_CACHE_PROFILE']
+            sage: v = E.intern_key(((0, -2), (0, -2)), 0)        # L_{-2} L_{-2} u
+            sage: _ = E.act_many([[(L, one(1))]], [[(v, one(1))]], [(0, 2, 0)])
+            sage: p = E.cache_profile('generator modes'); sorted(p)
+            ['age', 'clock', 'reuse']
+            sage: p['clock'] > 0
+            True
+            sage: sum(n for n, t in p['age'].values()) == E.cache_sizes()['generator modes']
+            True
+        """
+        cdef int which = {'generator modes': 0, 'word modes': 1}[cache]
+        s = self.e.cache_profile(which)
+        if not s.size():
+            return None
+        def hist(i):
+            return {b: (s[i + b], s[i + 65 + b]) for b in range(65) if s[i + b]}
+        return {'clock': s[0], 'reuse': hist(1), 'age': hist(131)}
+
+    def coefficient_stats(self, cache='word modes'):
+        """The sizes of the rational coefficients stored in ``cache``
+        (``'word modes'`` or ``'generator modes'``; diagnostics, for a more
+        compact storage): ``None`` unless the coefficients are rational
+        (kind ``'q'``).  A dictionary: ``'terms'``, ``'lists'``,
+        ``'big numerators'`` and ``'big denominators'`` (stored as GMP
+        integers, beyond FLINT's inline 62 bits), ``'limbs'`` (the 64-bit
+        words those allocate), ``'denominator 1'``, ``'distinct values'`` (by
+        a 64-bit hash), ``'bits'`` (of all numerators and denominators),
+        ``'bits, common denominators'`` (with one denominator per list, their
+        lcm, and the numerators scaled to it), ``'lists with one
+        denominator'``, and the histograms ``'numerator bits'``,
+        ``'denominator bits'`` (bit length: terms; 1023 includes longer).
+        Not while :meth:`act_many` runs.
+
+        EXAMPLES::
+
+            sage: from vertex_algebras._module_engine import ModuleEngine
+            sage: one = lambda n, d=1: [((), n, d)]
+            sage: L = ((0, 0),)
+            sage: E = ModuleEngine('q', 1, [0], [2], 1)
+            sage: E.set_ope(0, 0, [[(((0, 1),), one(1))], [(L, one(2))], [],
+            ....:              [((), one(1, 4))]])
+            sage: E.set_top(1, [0])
+            sage: E.set_zero_mode(0, [[(0, one(1, 16))]])
+            sage: v = E.intern_key(((0, -2), (0, -2)), 0)
+            sage: _ = E.act_many([[(L, one(1))]], [[(v, one(1))]], [(0, 2, 0)])
+            sage: s = E.coefficient_stats('generator modes')
+            sage: s['terms'] == E.cache_sizes()['generator mode terms']
+            True
+            sage: s['terms'] == sum(s['numerator bits'].values()) == sum(s['denominator bits'].values())
+            True
+            sage: s['big numerators'], s['big denominators']
+            (0, 0)
+            sage: E2 = ModuleEngine('nmod', 1, [0], [2], 1, modulus=101)
+            sage: E2.coefficient_stats() is None
+            True
+        """
+        cdef int which = {'generator modes': 0, 'word modes': 1}[cache]
+        s = self.e.coefficient_stats(which)
+        if not s.size():
+            return None
+        names = ['terms', 'lists', 'big numerators', 'big denominators', 'limbs', 'denominator 1',
+                 'distinct values', 'bits', 'bits, common denominators', 'lists with one denominator']
+        out = dict(zip(names, s[:10]))
+        out['numerator bits'] = {b: s[10 + b] for b in range(1024) if s[10 + b]}
+        out['denominator bits'] = {b: s[1034 + b] for b in range(1024) if s[1034 + b]}
+        return out

@@ -26,6 +26,10 @@
 // second table.
 #pragma once
 #include "_engine_base.hpp"
+#include <algorithm>
+#include <cstdlib>
+#include <type_traits>
+#include <vector>
 
 namespace vae {
 
@@ -59,6 +63,8 @@ struct ModuleEngineBase {
                                            const std::vector<int> &iv, int nthreads, PollFn poll) = 0;
     virtual std::vector<size_t> cache_sizes() const = 0;
     virtual std::vector<size_t> word_stats() const = 0;
+    virtual std::vector<size_t> cache_profile(int which) const = 0;
+    virtual std::vector<size_t> coefficient_stats(int which) const = 0;
 };
 
 // floor(a / b) for b > 0
@@ -103,10 +109,19 @@ struct CompactCache {
         std::vector<Chunk> chunks;
         std::unordered_map<uint32_t, std::thread::id> owners;   // records being computed
         size_t terms = 0;
+        // profiling only (prof): the clock of each record's last lookup, and
+        // the reuse intervals (clock ticks between two lookups of a record) by
+        // bit length, counted per lookup and weighted by the record's terms
+        std::vector<uint64_t> last;
+        uint64_t reuse_n[65] = {}, reuse_t[65] = {};
     };
     static constexpr size_t NS = 64;
     static constexpr uint32_t CHUNK = 1u << 16, NONE = 0xFFFFFFFFu;
     std::unique_ptr<Shard[]> shards{new Shard[NS]};
+    // cache profiling (VERTEX_ALGEBRAS_CACHE_PROFILE=1; diagnostics): a
+    // clock ticking once per lookup, see Shard::last; off, it costs nothing
+    bool prof = false;
+    std::atomic<uint64_t> clock{0};
 
     CompactCache() = default;
     CompactCache(const CompactCache &) = delete;
@@ -191,7 +206,15 @@ struct CompactCache {
         Shard &s = shards[shard_of(key)];
         std::unique_lock<std::mutex> lk(s.m);
         uint32_t ri = find(s, key);
+        uint64_t now = prof ? clock.fetch_add(1, std::memory_order_relaxed) : 0;
         if (ri != NONE) {
+            if (prof) {
+                uint64_t d = now - s.last[ri];
+                int b = d ? 64 - __builtin_clzll(d) : 0;
+                s.reuse_n[b]++;
+                s.reuse_t[b] += s.recs[ri].len;
+                s.last[ri] = now;
+            }
             if (s.recs[ri].state == READY) return view(s, s.recs[ri]);
             if (s.recs[ri].state == COMPUTING) {
                 if (s.owners[ri] == std::this_thread::get_id())
@@ -205,6 +228,7 @@ struct CompactCache {
             ri = (uint32_t)s.recs.size();
             if (ri == NONE) throw std::length_error("cache shard full");
             s.recs.push_back(Rec());
+            if (prof) s.last.push_back(now);
             put(s, key, ri);
         }
         s.owners[ri] = std::this_thread::get_id();
@@ -244,7 +268,105 @@ struct CompactCache {
         }
         return n;
     }
+    // profiling: [clock, reuse_n[0..64], reuse_t[0..64], age_n[0..64],
+    // age_t[0..64]], the ages (clock ticks since the last lookup, at the time
+    // of the call) of the stored records by bit length, counted and weighted
+    // by terms; empty unless prof
+    std::vector<size_t> profile() const {
+        if (!prof) return {};
+        std::vector<size_t> out(1 + 4 * 65, 0);
+        uint64_t now = clock.load();
+        out[0] = (size_t)now;
+        for (size_t i = 0; i < NS; i++) {
+            Shard &s = shards[i];
+            std::lock_guard<std::mutex> g(s.m);
+            for (int b = 0; b < 65; b++) {
+                out[1 + b] += s.reuse_n[b];
+                out[66 + b] += s.reuse_t[b];
+            }
+            for (size_t r = 0; r < s.recs.size(); r++) {
+                if (s.recs[r].state != READY) continue;
+                uint64_t d = now - s.last[r];
+                int b = d ? 64 - __builtin_clzll(d) : 0;
+                out[131 + b]++;
+                out[196 + b] += s.recs[r].len;
+            }
+        }
+        return out;
+    }
+    // calls f(View) for every stored list (no other thread may run)
+    template <class F>
+    void for_each(F &&f) const {
+        for (size_t i = 0; i < NS; i++)
+            for (const Rec &r : shards[i].recs)
+                if (r.state == READY) f(view(shards[i], r));
+    }
 };
+
+// Statistics of the rational coefficients of the lists of a CompactCache
+// (diagnostics, ModuleEngine::coefficient_stats): appended to out, in this
+// order: terms; lists; terms whose numerator / denominator is a GMP integer
+// (beyond FLINT's inline 62 bits); the limbs those allocate; terms with
+// denominator 1; distinct values (by a 64-bit hash: may undercount by
+// collisions, negligibly); total bits of numerators and denominators; total
+// bits with one denominator per list (the lcm, plus the scaled numerators);
+// lists with one distinct denominator; then the histograms of the numerators'
+// and denominators' bit lengths (0..1023, longer in 1023).
+template <class Cache>
+void rational_stats(const Cache &cache, std::vector<size_t> &out) {
+    size_t terms = 0, lists = 0, big_n = 0, big_d = 0, limbs = 0, den1 = 0, bits = 0, bits_cd = 0, one_den = 0;
+    std::vector<size_t> hn(1024, 0), hd(1024, 0);
+    std::vector<uint64_t> hashes;
+    fmpz_t l, t;
+    fmpz_init(l);
+    fmpz_init(t);
+    auto limbs_of = [](const fmpz_t z) -> size_t {
+        return COEFF_IS_MPZ(*z) ? (size_t)COEFF_TO_PTR(*z)->_mp_alloc : 0;
+    };
+    auto mix = [](uint64_t h, uint64_t x) { return (h ^ (x + 0x9E3779B97F4A7C15ULL + (h << 6) + (h >> 2))) * 0xBF58476D1CE4E5B9ULL; };
+    auto hash_of = [&](const fmpz_t z) -> uint64_t {
+        if (!COEFF_IS_MPZ(*z)) return mix(1, (uint64_t)*z);
+        const __mpz_struct *m = COEFF_TO_PTR(*z);
+        uint64_t h = mix(2, (uint64_t)(int64_t)m->_mp_size);
+        for (int i = 0; i < std::abs(m->_mp_size); i++) h = mix(h, (uint64_t)m->_mp_d[i]);
+        return h;
+    };
+    cache.for_each([&](const typename Cache::View &v) {
+        lists++;
+        fmpz_one(l);
+        bool same = true;
+        for (uint32_t j = 0; j < v.n; j++) {
+            const fmpq *q = v.c[j].p;
+            size_t bn = fmpz_bits(fmpq_numref(q)), bd = fmpz_bits(fmpq_denref(q));
+            terms++;
+            hn[std::min<size_t>(bn, 1023)]++;
+            hd[std::min<size_t>(bd, 1023)]++;
+            bits += bn + bd;
+            if (COEFF_IS_MPZ(*fmpq_numref(q))) big_n++;
+            if (COEFF_IS_MPZ(*fmpq_denref(q))) big_d++;
+            limbs += limbs_of(fmpq_numref(q)) + limbs_of(fmpq_denref(q));
+            if (fmpz_is_one(fmpq_denref(q))) den1++;
+            hashes.push_back(mix(hash_of(fmpq_numref(q)), hash_of(fmpq_denref(q))));
+            if (j && !fmpz_equal(fmpq_denref(q), fmpq_denref(v.c[0].p))) same = false;
+            fmpz_lcm(l, l, fmpq_denref(q));
+        }
+        if (same) one_den++;
+        bits_cd += fmpz_bits(l);
+        for (uint32_t j = 0; j < v.n; j++) {
+            const fmpq *q = v.c[j].p;
+            fmpz_divexact(t, l, fmpq_denref(q));
+            fmpz_mul(t, t, fmpq_numref(q));
+            bits_cd += fmpz_bits(t);
+        }
+    });
+    fmpz_clear(l);
+    fmpz_clear(t);
+    std::sort(hashes.begin(), hashes.end());
+    size_t distinct = (size_t)(std::unique(hashes.begin(), hashes.end()) - hashes.begin());
+    for (size_t x : {terms, lists, big_n, big_d, limbs, den1, distinct, bits, bits_cd, one_den}) out.push_back(x);
+    out.insert(out.end(), hn.begin(), hn.end());
+    out.insert(out.end(), hd.begin(), hd.end());
+}
 
 template <class Ring>
 class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleEngineBase {
@@ -313,6 +435,8 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         : Core(std::forward<A>(ring_args)...), G(ngens), par(parities), h2(weights2), D(den) {
         if (G < 1 || G > 256) throw std::invalid_argument("1 to 256 generators");
         if (D < 1) throw std::invalid_argument("bad denominator");
+        const char *prof = std::getenv("VERTEX_ALGEBRAS_CACHE_PROFILE");
+        gen_cache.prof = word_cache.prof = prof && std::string(prof) == "1";
         par.resize((size_t)G, 0);
         if ((int)h2.size() != G) throw std::invalid_argument("one weight per generator");
         for (long h : h2)
@@ -766,6 +890,18 @@ class ModuleEngine : public EngineCore<ModuleEngine<Ring>, Ring>, public ModuleE
         std::vector<ElemData> out;
         out.reserve(res.size());
         for (const Elem &e : res) out.push_back(elem_out(e));
+        return out;
+    }
+    // diagnostics of the caches (which = 0: generator modes, 1: word modes):
+    // CompactCache::profile (empty unless VERTEX_ALGEBRAS_CACHE_PROFILE=1
+    // when the engine was made), and rational_stats (empty unless over QQ);
+    // call while no act_many runs
+    std::vector<size_t> cache_profile(int which) const override {
+        return (which ? word_cache : gen_cache).profile();
+    }
+    std::vector<size_t> coefficient_stats(int which) const override {
+        std::vector<size_t> out;
+        if constexpr (std::is_same<Ring, RingQ>::value) rational_stats(which ? word_cache : gen_cache, out);
         return out;
     }
     std::vector<size_t> cache_sizes() const override {
