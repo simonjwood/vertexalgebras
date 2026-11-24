@@ -113,11 +113,15 @@ installs:
 5. a copy of the example notebooks, in the folder
    `~/vertex-algebra-notebooks`.
 
-It needs no administrator rights and does not change your shell settings;
-what you decline is not installed, and what is there already is used, not
+It needs no administrator rights and does not change your shell settings.
+What you decline is not installed, and what is there already is used, not
 changed.
 
-**On Windows**, first install the Windows Subsystem for Linux (WSL), a
+The script runs in a terminal. On **Linux**, open a terminal (on Ubuntu:
+Ctrl+Alt+T); on **macOS**, open the Terminal app (in Applications →
+Utilities).
+
+On **Windows**, first install the Windows Subsystem for Linux (WSL), a
 Linux system inside Windows 10 (version 2004 or later) or Windows 11: Sage
 does not run on Windows itself, and Sage recommends WSL. Open PowerShell
 as administrator (right-click the Start button → "Terminal (Admin)" or
@@ -134,9 +138,8 @@ PowerShell. Microsoft's guide
 [Install WSL](https://learn.microsoft.com/en-us/windows/wsl/install) has
 more details.
 
-**On macOS**, open the Terminal app (in Applications → Utilities).
-
-In the terminal, download the script and run it:
+**For any of the above operating systems,** once you have a terminal
+open, download the script and run it:
 
 ```bash
 curl -fsSLO https://raw.githubusercontent.com/simonjwood/vertexalgebras/main/install.sh
