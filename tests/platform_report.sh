@@ -16,11 +16,18 @@
 # minutes in all); send that file.  Uses bash 3.2 and POSIX tools only
 # (macOS's own bash works).
 set -u
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/.." || exit 1
 out="platform_report_$(date +%Y%m%d_%H%M%S).txt"
 install=1
 [ "${1:-}" = "--no-install" ] && install=0
 [ -e meson.build ] || install=0    # a copied folder: nothing to build
+# Without meson-python (the package installed by a plain pip install) this
+# folder cannot be built: the tests then use the installed package.
+nobuild=0
+if [ $install = 1 ] && ! python -c 'import mesonpy' > /dev/null 2>&1; then
+    install=0
+    nobuild=1
+fi
 
 section() {
     printf '\n===== %s =====\n' "$1" >> "$out"
@@ -52,6 +59,7 @@ if [ "$(uname)" = Darwin ]; then
     run xcode-select -p
 else
     [ -r /etc/os-release ] && run cat /etc/os-release
+    run sh -c "grep -m1 'model name' /proc/cpuinfo"
 fi
 if [ "$(uname)" = Darwin ]; then run sysctl -n hw.ncpu; else run nproc; fi
 
@@ -75,10 +83,20 @@ if [ $install = 1 ]; then
     start=$(date +%s)
     run pip install --no-build-isolation -e .
     printf 'build took %s s\n' "$(( $(date +%s) - start ))" >> "$out"
+elif [ $nobuild = 1 ]; then
+    section "build"
+    echo 'skipped: meson-python is not installed, so this folder is not built; the tests use the installed package' >> "$out"
 fi
 
 section "import"
 run python -c "import vertex_algebras; print(vertex_algebras.__version__)"
+if [ -e meson.build ]; then
+    here=$(sed -n "s/^ *version: '\(.*\)',\$/\1/p" meson.build | head -1)
+    installed=$(python -c "import vertex_algebras; print(vertex_algebras.__version__)" 2>/dev/null)
+    if [ -n "$here" ] && [ "$here" != "$installed" ]; then
+        echo "WARNING: this folder is version $here, the installed package ${installed:-none}: the tests of this folder may not match it" >> "$out"
+    fi
+fi
 
 section "libraries of the compiled engines"
 # the compiled modules that Python imports: in the build folder for an
@@ -107,7 +125,9 @@ run bash tests/run_all.sh --fallback
 printf 'took %s s\n' "$(( $(date +%s) - start ))" >> "$out"
 
 section "summary"
-summary=$(grep -E 'FAIL|ALL PASSED|SOME CHECKS FAILED|exit status [1-9]' "$out" | tail -40)
+# each line with the section it comes from
+summary=$(awk '/^===== .* =====$/ { s = substr($0, 7, length($0) - 12); next }
+    /FAIL|ALL PASSED|SOME CHECKS FAILED|exit status [1-9]|^skipped:|^WARNING/ { print s ": " $0 }' "$out" | tail -40)
 printf '%s\n' "$summary" >> "$out"
 echo "done: send $out"
 tail -20 "$out"

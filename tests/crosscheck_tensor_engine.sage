@@ -40,6 +40,31 @@ _NCORES = _os.cpu_count() or 1
 def _threads(n):
     return min(n, _NCORES)
 
+
+# Ctrl-C time limits: 2 s on the authors' desktop, longer on slower
+# machines (a laptop needed 2.1 s where the desktop needs 0.5 s; user
+# report, 2026-11-23).  The limit scales with this machine's time for a
+# fixed product, a Virasoro OPE that takes 0.30 s on the desktop.
+def _ctrl_c_limit():
+    from vertex_algebras.universal_vertex_algebra import UniversalVertexAlgebra
+    vir = {('T', 'T'): [{(('T', 1),): 1}, {(('T', 0),): 2}, 0, QQ(7) / 12]}
+    V = UniversalVertexAlgebra(QQ, ['T'], vir, degrees={'T': 2})
+    x = sum(V.monomial(k) for k in V.weight_space(10).basis_keys())
+    set_nproc(1)
+    best = None
+    for _ in range(2):
+        V.clear_caches()
+        t = time.perf_counter()
+        x.ope(x)
+        dt = time.perf_counter() - t
+        best = dt if best is None else min(best, dt)
+    V.clear_caches()
+    return 2 * max(1, best / 0.30)
+
+
+_CTRL_C_LIMIT = _ctrl_c_limit()
+print('Ctrl-C time limit: %.1f s' % _CTRL_C_LIMIT)
+
 def check(ok, what):
     global checked, mismatches
     checked += 1
@@ -215,7 +240,7 @@ for n in sorted({1, _threads(4)}):
         got = 'interrupted'
     signal.setitimer(signal.ITIMER_REAL, float(0r))
     dt = time.perf_counter() - t
-    check(got == 'interrupted' and dt < 2, 'Ctrl-C with %d thread(s): %s after %.2f s' % (n, got, dt))
+    check(got == 'interrupted' and dt < _CTRL_C_LIMIT, 'Ctrl-C with %d thread(s): %s after %.2f s' % (n, got, dt))
     r = raw(small.ope(small))
     ref = r if ref is None else ref
     check(r == ref, 'results after Ctrl-C (%d threads)' % n)
