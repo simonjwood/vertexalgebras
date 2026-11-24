@@ -456,13 +456,13 @@ cdef class ModuleEngine:
             sage: d = E.cache_sizes(); sorted(d)
             ['generator mode terms', 'generator modes', 'keys', 'value bytes', 'values',
              'word mode terms', 'word modes', 'word modes ids', 'words']
-            sage: d['keys'] >= 2, d['values']
-            (True, 0)
+            sage: import os
+            sage: d['keys'] >= 2, (d['values'] > 0) == (os.environ.get('VERTEX_ALGEBRAS_INTERN') == '1')
+            (True, True)
 
         Interned coefficients give the same results, in the same order (key
         ids are per engine: compare the keys)::
 
-            sage: import os
             sage: def run():
             ....:     E = ModuleEngine('q', 1, [0], [2], 1)
             ....:     E.set_ope(0, 0, [[(((0, 1),), one(1))], [(L, one(2))], [],
@@ -474,10 +474,15 @@ cdef class ModuleEngine:
             ....:     T = [(0, n, i) for n in range(-1, 6) for i in range(3)]
             ....:     r = E.act_many([[(L, one(1)), (((0, 0), (0, 0)), one(-3, 7))]], vs, T, 2)
             ....:     return E, [[(E.key_of(k), c) for k, c in x] for x in r]
+            sage: old = os.environ.get('VERTEX_ALGEBRAS_INTERN')
+            sage: os.environ['VERTEX_ALGEBRAS_INTERN'] = '0'
             sage: E0, r0 = run()
             sage: os.environ['VERTEX_ALGEBRAS_INTERN'] = '1'
             sage: E1, r1 = run()
-            sage: del os.environ['VERTEX_ALGEBRAS_INTERN']
+            sage: if old is None:
+            ....:     del os.environ['VERTEX_ALGEBRAS_INTERN']
+            ....: else:
+            ....:     os.environ['VERTEX_ALGEBRAS_INTERN'] = old
             sage: r1 == r0, sum(map(len, r0)) > 50
             (True, True)
             sage: d = E1.cache_sizes()
@@ -537,11 +542,16 @@ cdef class ModuleEngine:
             ....:     E.set_top(1, [0])
             ....:     E.set_zero_mode(0, [[(0, one(1, 16))]])
             ....:     return E
+            sage: old = os.environ.get('VERTEX_ALGEBRAS_CACHE_PROFILE')
+            sage: os.environ['VERTEX_ALGEBRAS_CACHE_PROFILE'] = '0'
             sage: engine().cache_profile() is None
             True
             sage: os.environ['VERTEX_ALGEBRAS_CACHE_PROFILE'] = '1'
             sage: E = engine()
-            sage: del os.environ['VERTEX_ALGEBRAS_CACHE_PROFILE']
+            sage: if old is None:
+            ....:     del os.environ['VERTEX_ALGEBRAS_CACHE_PROFILE']
+            ....: else:
+            ....:     os.environ['VERTEX_ALGEBRAS_CACHE_PROFILE'] = old
             sage: v = E.intern_key(((0, -2), (0, -2)), 0)        # L_{-2} L_{-2} u
             sage: _ = E.act_many([[(L, one(1))]], [[(v, one(1))]], [(0, 2, 0)])
             sage: p = E.cache_profile('generator modes'); sorted(p)
