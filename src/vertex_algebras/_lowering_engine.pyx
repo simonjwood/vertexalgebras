@@ -246,8 +246,9 @@ cdef class LoweringEngine:
         """
         A dict: memo entries, nonzero memo matrices, their stored entries,
         approximate bytes, cache misses; the last extension's seconds
-        (phase A, elimination, phase B) and candidates.
+        (phase A, elimination, phase B), its candidates and the memo
+        entries computed ahead of its phases (in parallel, by word weight).
         """
         s = list(self.e.stats())
         return dict(zip(['memo', 'matrices', 'entries', 'bytes', 'misses', 'phase A',
-                         'elimination', 'phase B', 'candidates'], s))
+                         'elimination', 'phase B', 'candidates', 'prefetched'], s))

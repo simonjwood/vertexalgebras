@@ -31,6 +31,7 @@
 #include <flint/nmod.h>
 #include <cstring>
 #include <map>
+#include <unordered_set>
 
 namespace vae {
 
@@ -296,8 +297,7 @@ struct LoweringEngineBase {
     virtual std::vector<int> dims() const = 0;
     virtual std::pair<ModeWord, int> basis_word(int d, int i) const = 0;
     virtual Entries gen_matrix(int g, long nn, int e) = 0;
-    virtual Entries word_matrix(uint32_t w, long nn, int e,
-                                                                             PollFn poll) = 0;
+    virtual Entries word_matrix(uint32_t w, long nn, int e, PollFn poll) = 0;
     virtual std::vector<double> stats() = 0;
     virtual void set_logging(int on) = 0;
 };
@@ -579,6 +579,92 @@ class LoweringEngine : public LoweringEngineBase {
         return any;
     }
 
+    // -- prefetch ------------------------------------------------------------ //
+    // The memo entries a phase will ask for, computed beforehand level by
+    // level (word weight ascending) in parallel.  A composite word's mode
+    // needs modes of words of smaller weight only (its head and tail, the
+    // split products x_(i) B), so the entries of one level never wait for
+    // each other; without this, threads asking for the same deep entries
+    // wait for one thread computing their recursion.  The keys are found by
+    // the recursion of compute_mode without arithmetic: a superset of the
+    // entries asked for (a term skipped there because a factor is zero is
+    // collected here), all inside the known depths.
+    struct PKey {
+        uint32_t w;
+        long nn;
+        int e;
+    };
+    struct Prefetch {
+        std::unordered_set<uint64_t> seen;
+        std::vector<std::vector<PKey>> level;       // by word weight
+        int open = -1;      // a depth whose generator zero modes are not known yet
+    };
+    void collect(Prefetch &P, uint32_t w, long nn, int e) {
+        const WordRec &W = words[w];
+        int t = target(W.weight, nn, e);
+        if (t < 0 || e < 0) return;
+        if (W.letters.size() == 1 && W.letters[0].second == 0) return;     // a generator mode
+        if (e > D || t > D || (e == P.open && t == P.open)) return;
+        uint64_t key = mkey(w, nn, e);
+        if (P.seen.count(key) || memo.ready(key)) return;
+        P.seen.insert(key);
+        if ((size_t)W.weight >= P.level.size()) P.level.resize((size_t)W.weight + 1);
+        P.level[(size_t)W.weight].push_back({w, nn, e});
+        if (W.letters.size() < 2 || !has_splits[w]) return;
+        uint32_t x = W.head, B = W.tail;
+        int wx = words[x].weight, wB = words[B].weight;
+        for (long j = 0; j < std::max<long>(e + wB - nn, 0); j++) {
+            collect(P, B, nn + j, e);
+            int tB = target(wB, nn + j, e);
+            if (tB >= 0) collect(P, x, -1 - j, tB);
+        }
+        for (long j = 0; j < e + wx; j++) {
+            if (wx - j - 1 < 0) {
+                collect(P, x, j, e);
+                int tx = target(wx, j, e);
+                if (tx >= 0) collect(P, B, nn - 1 - j, tx);
+            } else {
+                long m = nn - 1 - j;
+                collect(P, B, m, e);
+                int tB = target(wB, m, e);
+                if (tB >= 0) collect(P, x, j, tB);
+            }
+        }
+        for (int i = 0; i < wx; i++)
+            for (const auto &tc : splits[w][i].terms) collect(P, tc.first, nn - 1 - i, e);
+    }
+    // the words' modes in [g1_(p), g2_(q)] on depth e (as add_commutator)
+    void collect_commutator(Prefetch &P, int g1, long p, int g2, long q, int e) {
+        if (e + wt[g1] + wt[g2] - (int)p - (int)q - 2 < 0) return;
+        const auto &poles = ope[(size_t)g1 * G + g2];
+        Z b;
+        for (int j = 0; j < (int)poles.size(); j++) {
+            gbinom(b.v, p, (ulong)j);
+            if (fmpz_is_zero(b.v)) continue;
+            for (const auto &tc : poles[j].terms) collect(P, tc.first, p + q - j, e);
+        }
+    }
+    // compute the collected entries; returns their number
+    size_t run_prefetch(Prefetch &P, int nthreads, PollFn poll) {
+        size_t n = 0;
+        P.seen.clear();
+        for (auto &lv : P.level) {
+            if (lv.empty()) continue;
+            std::stable_sort(lv.begin(), lv.end(), [&](const PKey &a, const PKey &b) {
+                int ta = target(words[a.w].weight, a.nn, a.e), tb = target(words[b.w].weight, b.nn, b.e);
+                return (size_t)dim[a.e] * dim[ta] > (size_t)dim[b.e] * dim[tb];
+            });
+            parallel_for(lv.size(), nthreads, poll, [&](size_t k) {
+                const PKey &q = lv[k];
+                memo.get(mkey(q.w, q.nn, q.e), [&]() { return compute_mode(q.w, q.nn, q.e); });
+            });
+            n += lv.size();
+            lv.clear();
+            lv.shrink_to_fit();
+        }
+        return n;
+    }
+
     // -- threads ------------------------------------------------------------- //
     // f(k) for k < n, in nthreads threads (dynamic), the caller polling
     template <class Fn>
@@ -756,6 +842,12 @@ class LoweringEngine : public LoweringEngineBase {
         std::stable_sort(order.begin(), order.end(), [&](size_t x, size_t y) {
             return (size_t)dim[N - tasks[x].m] * dim[N - tasks[x].n] > (size_t)dim[N - tasks[y].m] * dim[N - tasks[y].n];
         });
+        {
+            Prefetch P;
+            for (const Task &T : tasks)
+                collect_commutator(P, T.g2, T.m + wt[T.g2] - 1, T.g, -T.n + wt[T.g] - 1, N - T.n);
+            last_prefetched = run_prefetch(P, nthreads, poll);
+        }
         D = N;      // depth N exists from here (its modes are set below)
         dim.push_back(0);
         basis.emplace_back();
@@ -846,6 +938,12 @@ class LoweringEngine : public LoweringEngineBase {
             for (int g2 = 0; g2 < G; g2++)
                 for (int k = 1; k <= N; k++)
                     if (dim[N - k] > 0 && dN > 0) zt.push_back({g1, g2, k});
+        {
+            Prefetch P;
+            P.open = N;
+            for (const ZTask &T : zt) collect_commutator(P, T.g2, T.k + wt[T.g2] - 1, T.g1, wt[T.g1] - 1, N);
+            last_prefetched += run_prefetch(P, nthreads, poll);
+        }
         std::vector<M> zb(zt.size());
         {
             parallel_for(zt.size(), nthreads, poll, [&](size_t k) {
@@ -899,6 +997,7 @@ class LoweringEngine : public LoweringEngineBase {
     }
     std::vector<double> last_times{0, 0, 0};
     size_t last_cands = 0;
+    size_t last_prefetched = 0;
 
     // -- access ------------------------------------------------------------ //
     int depth() const override { return D; }
@@ -930,7 +1029,7 @@ class LoweringEngine : public LoweringEngineBase {
     }
     // memo entries, nonzero matrices, stored entries, approximate bytes,
     // misses, then the last extension's times (phase A, elimination, phase B)
-    // and candidates
+    // and candidates, memo entries computed by prefetch
     std::vector<double> stats() override {
         double n = 0, nz = 0, ent = 0, bytes = 0;
         for (size_t s = 0; s < memo.NS; s++) {
@@ -947,7 +1046,7 @@ class LoweringEngine : public LoweringEngineBase {
             }
         }
         return {n, nz, ent, bytes, (double)misses.load(), last_times[0], last_times[1], last_times[2],
-                (double)last_cands};
+                (double)last_cands, (double)last_prefetched};
     }
     void set_logging(int on) override { logging = on != 0; }
 };
