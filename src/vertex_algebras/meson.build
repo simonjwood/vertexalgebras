@@ -44,7 +44,7 @@ py.install_sources(
 # The C++ engines: Cython wrappers (sharing _engine_base.pxi) of headers in
 # this directory (_engine_base.hpp and one per engine).
 foreach name : ['_universal_engine', '_lattice_engine', '_tensor_engine',
-                '_linear_algebra_engine', '_module_engine']
+                '_linear_algebra_engine', '_module_engine', '_lowering_engine']
   py.extension_module(name, name + '.pyx',
     override_options: ['cython_language=cpp'],
     include_directories: include_directories('.'),
