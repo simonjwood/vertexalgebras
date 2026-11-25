@@ -70,12 +70,6 @@ struct FieldQ {
         if (fmpq_is_zero(a.v)) throw DivisionByZero("division by zero");
         fmpq_inv(r.v, a.v);
     }
-    size_t heap_bytes(const E &a) const {      // limbs outside the fmpq (approximate)
-        size_t b = 0;
-        if (COEFF_IS_MPZ(*fmpq_numref(a.v))) b += 16 + 8 * fmpz_size(fmpq_numref(a.v));
-        if (COEFF_IS_MPZ(*fmpq_denref(a.v))) b += 16 + 8 * fmpz_size(fmpq_denref(a.v));
-        return b;
-    }
     void from_data(E &a, const CoefData &d) const {
         fmpq_zero(a.v);
         Z n, m;
@@ -102,6 +96,75 @@ struct FieldQ {
         if (!fmpq_is_zero(a.v)) d.push_back(Term{{}, num_of(fmpq_numref(a.v)), num_of(fmpq_denref(a.v))});
         return d;
     }
+    // the values of a sparse matrix, packed row by row into one word buffer
+    // (an fmpq with a large numerator costs ~70 bytes on the heap, here ~32):
+    // per entry a header word h, then limbs.
+    //   h even: the integer h / 2 (|h / 2| < 2^62);
+    //   h odd: bit 1 the sign, bits 2..32 the limb count n of |numerator|,
+    //   bits 33..63 the limb count d of the denominator (0: denominator 1),
+    //   then n + d limbs (least significant first)
+    struct Store {
+        std::vector<uint64_t> w;
+        std::vector<uint64_t> row{0};       // word offset of each row, r + 1
+        static size_t limbs(const fmpz *z) { return fmpz_is_zero(z) ? 0 : fmpz_size(z); }
+        static size_t need(const E &x) {
+            const fmpz *n = fmpq_numref(x.v), *d = fmpq_denref(x.v);
+            if (fmpz_is_one(d) && !COEFF_IS_MPZ(*n)) return 1;
+            return 1 + limbs(n) + (fmpz_is_one(d) ? 0 : limbs(d));
+        }
+        void reserve(size_t words, uint32_t rows) {
+            w.reserve(words);
+            row.reserve((size_t)rows + 1);
+        }
+        static void put_abs(std::vector<uint64_t> &w, const fmpz *z, size_t k) {
+            if (!COEFF_IS_MPZ(*z)) {
+                slong v = *z;
+                w.push_back((uint64_t)(v < 0 ? -v : v));
+            } else {
+                const mpz_srcptr m = COEFF_TO_PTR(*z);
+                for (size_t i = 0; i < k; i++) w.push_back((uint64_t)m->_mp_d[i]);
+            }
+        }
+        void push(const E &x) {
+            const fmpz *n = fmpq_numref(x.v), *d = fmpq_denref(x.v);
+            if (fmpz_is_one(d) && !COEFF_IS_MPZ(*n)) {
+                w.push_back((uint64_t)((int64_t)*n * 2));
+                return;
+            }
+            size_t nn = limbs(n), dd = fmpz_is_one(d) ? 0 : limbs(d);
+            if (nn >= ((size_t)1 << 31) || dd >= ((size_t)1 << 31)) throw std::length_error("a coefficient too large to store");
+            w.push_back(1 | ((uint64_t)(fmpz_sgn(n) < 0) << 1) | ((uint64_t)nn << 2) | ((uint64_t)dd << 33));
+            put_abs(w, n, nn);
+            if (dd) put_abs(w, d, dd);
+        }
+        void end_row() { row.push_back(w.size()); }
+        size_t bytes() const { return 8 * (w.capacity() + row.capacity()); }
+        struct Reader {
+            const uint64_t *p;
+            // the next value, decoded into t
+            const E &next(E &t) {
+                uint64_t h = *p++;
+                if (!(h & 1)) {
+                    fmpz_set_si(fmpq_numref(t.v), (slong)((int64_t)h / 2));
+                    fmpz_one(fmpq_denref(t.v));
+                    return t;
+                }
+                slong nn = (slong)((h >> 2) & 0x7fffffff), dd = (slong)(h >> 33);
+                fmpz_set_ui_array(fmpq_numref(t.v), (const ulong *)p, nn);
+                p += nn;
+                if (h & 2) fmpz_neg(fmpq_numref(t.v), fmpq_numref(t.v));
+                if (dd) {
+                    fmpz_set_ui_array(fmpq_denref(t.v), (const ulong *)p, dd);
+                    p += dd;
+                } else {
+                    fmpz_one(fmpq_denref(t.v));
+                }
+                return t;
+            }
+        };
+        // a reader at row i (its first entry has index k)
+        Reader reader(size_t, uint32_t i) const { return Reader{w.data() + row[i]}; }
+    };
 };
 
 struct FieldP {
@@ -132,7 +195,6 @@ struct FieldP {
     void mul(E &r, const E &a, const E &b) const { r.v = nmod_mul(a.v, b.v, mod); }
     void neg(E &a) const { a.v = nmod_neg(a.v, mod); }
     void inv(E &r, const E &a) const { r.v = inv_u(a.v); }
-    size_t heap_bytes(const E &) const { return 0; }
     void from_data(E &a, const CoefData &d) const {
         ulong acc = 0;
         Z n, m;
@@ -153,6 +215,20 @@ struct FieldP {
         }
         return d;
     }
+    // the values of a sparse matrix (as FieldQ::Store; here one word each)
+    struct Store {
+        std::vector<E> v;
+        static size_t need(const E &) { return 1; }
+        void reserve(size_t n, uint32_t) { v.reserve(n); }
+        void push(const E &x) { v.push_back(x); }
+        void end_row() {}
+        size_t bytes() const { return sizeof(E) * v.capacity(); }
+        struct Reader {
+            const E *p;
+            const E &next(E &) { return *p++; }
+        };
+        Reader reader(size_t k, uint32_t) const { return Reader{v.data() + k}; }
+    };
 };
 
 // ------------------------------------------------------------------------ //
@@ -167,8 +243,9 @@ struct SMat {
     uint32_t r = 0, c = 0;
     std::vector<uint32_t> ptr;     // r + 1
     std::vector<uint32_t> col;
-    std::vector<E> val;
+    typename F::Store val;         // read row by row: val.reader(ptr[i], i)
     size_t nnz() const { return col.size(); }
+    size_t bytes() const { return sizeof(*this) + 4 * (ptr.capacity() + col.capacity()) + val.bytes(); }
 };
 template <class F>
 using MatP = std::shared_ptr<const SMat<F>>;
@@ -187,17 +264,19 @@ struct DMat {
 template <class F>
 void acc_mul(const F &K, DMat<F> &A, const SMat<F> &X, const SMat<F> &B, const typename F::E *s) {
     if (X.r != A.r || B.c != A.c || X.c != B.r) throw std::logic_error("matrix sizes do not match");
-    typename F::E t = K.make();
+    typename F::E t = K.make(), tx = K.make(), tb = K.make();
     for (uint32_t i = 0; i < X.r; i++) {
         typename F::E *row = &A.a[(size_t)i * A.c];
+        auto rx = X.val.reader(X.ptr[i], i);
         for (uint32_t p = X.ptr[i]; p < X.ptr[i + 1]; p++) {
-            const typename F::E *x = &X.val[p];
+            const typename F::E *x = &rx.next(tx);
             if (s) {
-                K.mul(t, X.val[p], *s);
+                K.mul(t, *x, *s);
                 x = &t;
             }
             uint32_t k = X.col[p];
-            for (uint32_t q = B.ptr[k]; q < B.ptr[k + 1]; q++) K.addmul(row[B.col[q]], *x, B.val[q]);
+            auto rb = B.val.reader(B.ptr[k], k);
+            for (uint32_t q = B.ptr[k]; q < B.ptr[k + 1]; q++) K.addmul(row[B.col[q]], *x, rb.next(tb));
         }
     }
 }
@@ -205,56 +284,60 @@ void acc_mul(const F &K, DMat<F> &A, const SMat<F> &X, const SMat<F> &B, const t
 template <class F>
 void acc_scaled(const F &K, DMat<F> &A, const SMat<F> &C, const typename F::E &s) {
     if (C.r != A.r || C.c != A.c) throw std::logic_error("matrix sizes do not match");
-    for (uint32_t i = 0; i < C.r; i++)
-        for (uint32_t p = C.ptr[i]; p < C.ptr[i + 1]; p++) K.addmul(A.at(i, C.col[p]), s, C.val[p]);
+    typename F::E tc = K.make();
+    for (uint32_t i = 0; i < C.r; i++) {
+        auto rc = C.val.reader(C.ptr[i], i);
+        for (uint32_t p = C.ptr[i]; p < C.ptr[i + 1]; p++) K.addmul(A.at(i, C.col[p]), s, rc.next(tc));
+    }
 }
 template <class F>
 MatP<F> compress(const F &K, DMat<F> &A) {
-    size_t n = 0;
+    size_t n = 0, words = 0;
     for (auto &x : A.a)
-        if (!K.is_zero(x)) n++;
+        if (!K.is_zero(x)) {
+            n++;
+            words += F::Store::need(x);
+        }
     if (n == 0) return nullptr;
     auto M = std::make_shared<SMat<F>>();
     M->r = A.r;
     M->c = A.c;
     M->ptr.reserve(A.r + 1);
     M->col.reserve(n);
-    M->val.reserve(n);
+    M->val.reserve(words, A.r);
     M->ptr.push_back(0);
     for (uint32_t i = 0; i < A.r; i++) {
         for (uint32_t j = 0; j < A.c; j++) {
             auto &x = A.at(i, j);
             if (!K.is_zero(x)) {
                 M->col.push_back(j);
-                M->val.push_back(std::move(x));
+                M->val.push(x);
             }
         }
         M->ptr.push_back((uint32_t)M->col.size());
+        M->val.end_row();
     }
     return M;
 }
 template <class F>
 MatP<F> scaled(const F &K, const SMat<F> &C, const typename F::E &s) {
     if (K.is_zero(s)) return nullptr;
-    auto M = std::make_shared<SMat<F>>(C);
-    for (auto &x : M->val) {
-        typename F::E t = K.make();
-        K.mul(t, x, s);
-        x = std::move(t);
-    }
-    return M;
+    DMat<F> A(K, C.r, C.c);
+    acc_scaled(K, A, C, s);
+    return compress(K, A);
 }
 template <class F>
 MatP<F> identity(const F &K, uint32_t n) {
     if (n == 0) return nullptr;
     auto M = std::make_shared<SMat<F>>();
     M->r = M->c = n;
+    typename F::E one = K.make();
+    K.one(one);
     for (uint32_t i = 0; i <= n; i++) M->ptr.push_back(i);
     for (uint32_t i = 0; i < n; i++) {
         M->col.push_back(i);
-        typename F::E one = K.make();
-        K.one(one);
-        M->val.push_back(std::move(one));
+        M->val.push(one);
+        M->val.end_row();
     }
     return M;
 }
@@ -764,9 +847,11 @@ class LoweringEngine : public LoweringEngineBase {
     }
     // the dense block (rows of A) of a matrix into a row-major buffer
     void put(std::vector<E> &buf, uint32_t cols, uint32_t r0, uint32_t c0, const SMat<F> &A) {
-        for (uint32_t i = 0; i < A.r; i++)
-            for (uint32_t p = A.ptr[i]; p < A.ptr[i + 1]; p++)
-                buf[(size_t)(r0 + i) * cols + c0 + A.col[p]] = A.val[p];
+        E t = K.make();
+        for (uint32_t i = 0; i < A.r; i++) {
+            auto rd = A.val.reader(A.ptr[i], i);
+            for (uint32_t p = A.ptr[i]; p < A.ptr[i + 1]; p++) buf[(size_t)(r0 + i) * cols + c0 + A.col[p]] = rd.next(t);
+        }
     }
 
     // -- one depth more ------------------------------------------------------ //
@@ -886,9 +971,12 @@ class LoweringEngine : public LoweringEngineBase {
             const Task &T = tasks[k];
             const SMat<F> &A = *blocks[k];
             uint32_t r0 = roff[(size_t)T.g2 * (N + 1) + T.m];
-            for (uint32_t i = 0; i < A.r; i++)
+            E t = K.make();
+            for (uint32_t i = 0; i < A.r; i++) {
+                auto rd = A.val.reader(A.ptr[i], i);
                 for (uint32_t q = A.ptr[i]; q < A.ptr[i + 1]; q++)
-                    L[(size_t)(r0 + i) * ncand + colof[T.g][T.n][A.col[q]]] = A.val[q];
+                    L[(size_t)(r0 + i) * ncand + colof[T.g][T.n][A.col[q]]] = rd.next(t);
+            }
         }
         blocks.clear();
         std::vector<E> R = L;           // keep L: the lowering modes from N are its pivot columns
@@ -1009,9 +1097,12 @@ class LoweringEngine : public LoweringEngineBase {
     Entries entries(const SMat<F> *A) const {
         Entries out;
         if (!A) return out;
-        for (uint32_t i = 0; i < A->r; i++)
+        E t = K.make();
+        for (uint32_t i = 0; i < A->r; i++) {
+            auto rd = A->val.reader(A->ptr[i], i);
             for (uint32_t p = A->ptr[i]; p < A->ptr[i + 1]; p++)
-                out.push_back({{(int)i, (int)A->col[p]}, K.to_data(A->val[p])});
+                out.push_back({{(int)i, (int)A->col[p]}, K.to_data(rd.next(t))});
+        }
         return out;
     }
     Entries gen_matrix(int g, long nn, int e) override {
@@ -1041,8 +1132,7 @@ class LoweringEngine : public LoweringEngineBase {
                 if (!A) continue;
                 nz++;
                 ent += (double)A->nnz();
-                bytes += 64 + 4.0 * (A->r + 1) + (4.0 + sizeof(E)) * A->nnz();
-                for (auto &x : A->val) bytes += (double)K.heap_bytes(x);
+                bytes += 32 + (double)A->bytes();       // + the shared_ptr's control block
             }
         }
         return {n, nz, ent, bytes, (double)misses.load(), last_times[0], last_times[1], last_times[2],
