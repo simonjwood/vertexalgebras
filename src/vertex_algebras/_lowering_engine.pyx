@@ -80,6 +80,20 @@ cdef class LoweringEngine:
         ....:     _ = E.extend()
         sage: E.dims()
         [1, 1, 1, 2, 2, 3, 4, 5]
+
+    TESTS:
+
+    An empty depth (the vacuum module, ``L_{-1}`` kills the top): the Ising
+    model's identity, `1, 0, 1, 1, 2, 2, 3, 3, 5, ...`::
+
+        sage: E = LoweringEngine('q', [2])
+        sage: E.set_ope(0, 0, [[(((0, 1),), one(1))], [(L, one(2))], [],
+        ....:                  [((), one(1, 4))]])
+        sage: E.set_top(1, [[[[]]]])
+        sage: for d in range(10):
+        ....:     _ = E.extend()
+        sage: E.dims()
+        [1, 0, 1, 1, 2, 2, 3, 3, 5, 5, 7]
     """
     cdef LoweringEngineBase *e
     cdef dict _wids          # word -> id

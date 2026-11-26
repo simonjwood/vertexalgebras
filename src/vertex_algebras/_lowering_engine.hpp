@@ -560,6 +560,7 @@ class LoweringEngine : public LoweringEngineBase {
         int t = target(wt[g], nn, e);
         if (t < 0 || e < 0) return nullptr;
         if (e > D || t > D) throw std::logic_error("a generator mode outside the known depths");
+        if (dim[e] == 0 || dim[t] == 0) return nullptr;     // into or out of an empty depth
         auto &m = gen[g][e];
         auto it = m.find(nn);
         if (it == m.end()) throw std::logic_error("a generator mode that is not known yet");
