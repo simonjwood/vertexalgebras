@@ -20,6 +20,13 @@
 // Zero modes at the new depth from their lowering data.  Modes are bracket
 // modes: g_(n) maps depth e to depth e + wt g - n - 1.
 //
+// Instead of a top, a window: depths 0 .. n0 with every generator mode
+// between them (a module over the level-n0 Zhu algebra); then the module is
+// Mbar_n0 modulo the largest submodule meeting the window trivially, and the
+// same criterion holds beyond n0 (a vector killed by every lowering mode
+// generates a submodule in depths >= its own).  Projective covers whose socle
+// tops lie in the window are such modules.
+//
 // Every mode is a sparse matrix (rows: target basis, columns: source basis);
 // the modes of words are memoised per (word, n, depth) in a cache shared by
 // threads (each entry computed once).  Fields: QQ (fmpq) and GF(p) (nmod).
@@ -366,7 +373,6 @@ using Letter = std::pair<int, int>;                     // (generator, derivativ
 using Word = std::vector<Letter>;
 using ModeWord = std::vector<std::pair<int, long>>;     // (generator, physics mode), first outermost
 using Entries = std::vector<std::pair<std::pair<int, int>, CoefData>>;   // ((row, column), coefficient)
-   // ((row, column), coefficient)
 
 struct LoweringEngineBase {
     virtual ~LoweringEngineBase() {}
@@ -375,6 +381,8 @@ struct LoweringEngineBase {
     virtual void set_splits(uint32_t w, const std::vector<ElemData> &products) = 0;
     virtual std::vector<uint32_t> missing_splits() = 0;
     virtual void set_top(int dim, const std::vector<std::vector<std::vector<CoefData>>> &zero_modes) = 0;
+    virtual void set_window(const std::vector<int> &dims,
+                            const std::vector<std::pair<std::vector<long>, Entries>> &modes) = 0;
     virtual int extend(int nthreads, PollFn poll) = 0;
     virtual int depth() const = 0;
     virtual std::vector<int> dims() const = 0;
@@ -540,6 +548,44 @@ class LoweringEngine : public LoweringEngineBase {
         dim = {k};
         basis = {{}};
         for (int j = 0; j < k; j++) basis[0].push_back({ModeWord(), j});
+    }
+    // a window: depths 0 .. n0 of dimensions dims, with every generator mode
+    // between them (key (g, nn, e) -> entries of g_(nn) on depth e; modes not
+    // given are zero); the window vectors are numbered across the depths
+    void set_window(const std::vector<int> &dims,
+                    const std::vector<std::pair<std::vector<long>, Entries>> &modes) override {
+        if (D >= 0) throw std::logic_error("the top is already set");
+        if (dims.empty() || dims[0] < 1) throw std::invalid_argument("the lowest depth of the window must not be zero");
+        for (int d : dims)
+            if (d < 0) throw std::invalid_argument("negative dimension");
+        const int n0 = (int)dims.size() - 1;
+        if (n0 > 65535) throw std::out_of_range("window too deep");
+        std::vector<std::vector<std::map<long, M>>> gw(G, std::vector<std::map<long, M>>(n0 + 1));
+        for (int g = 0; g < G; g++)
+            for (int e = 0; e <= n0; e++)
+                for (int t = 0; t <= n0; t++) gw[g][e][(long)e + wt[g] - 1 - t] = nullptr;
+        for (const auto &km : modes) {
+            if (km.first.size() != 3) throw std::invalid_argument("a mode key is (generator, n, depth)");
+            long g = km.first[0], nn = km.first[1], e = km.first[2];
+            if (g < 0 || g >= G) throw std::out_of_range("generator index");
+            if (e < 0 || e > n0) throw std::out_of_range("a mode out of a depth outside the window");
+            int t = target(wt[g], nn, (int)e);
+            if (t < 0 || t > n0) throw std::out_of_range("a mode into a depth outside the window");
+            DMat<F> A(K, (uint32_t)dims[t], (uint32_t)dims[e]);
+            for (const auto &x : km.second) {
+                int i = x.first.first, j = x.first.second;
+                if (i < 0 || j < 0 || i >= dims[t] || j >= dims[e]) throw std::out_of_range("matrix entry out of range");
+                K.from_data(A.at((uint32_t)i, (uint32_t)j), x.second);
+            }
+            gw[g][e][nn] = compress(K, A);
+        }
+        gen = std::move(gw);
+        D = n0;
+        dim = dims;
+        basis.assign(n0 + 1, {});
+        int u = 0;
+        for (int d = 0; d <= n0; d++)
+            for (int j = 0; j < dims[d]; j++) basis[d].push_back({ModeWord(), u++});
     }
 
     // -- modes --------------------------------------------------------------- //
