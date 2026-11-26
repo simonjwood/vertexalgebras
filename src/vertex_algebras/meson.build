@@ -21,6 +21,7 @@ py.install_sources(
   'quotient_vertex_algebra.py',
   '_keyed_spans.py',
   'tensor_product_vertex_algebra.py',
+  'top_quotient_module.py',
   'universal_vertex_algebra.py',
   'vertex_algebra.py',
   'vertex_algebra_categories.py',

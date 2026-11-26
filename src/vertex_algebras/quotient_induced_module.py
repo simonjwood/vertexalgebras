@@ -807,6 +807,32 @@ class InducedModuleUpTo(QuotientVertexAlgebraModule):
         """
         return self._N._weight
 
+    def top_quotient(self, implementation=None):
+        r"""
+        The quotient of this module by its largest submodule meeting the top
+        level (the degrees up to the level, for a higher Zhu algebra)
+        trivially, computed depth by depth from lowering data, to any depth
+        (``max_depth`` only bounds the window); see
+        :class:`~vertex_algebras.top_quotient_module.TopQuotientModule`.
+
+        INPUT:
+
+        - ``implementation`` -- (default: ``None``) ``None``, ``'engine'``
+          or ``'python'``
+
+        EXAMPLES::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, -22/5, conformal_vector='L'); L = V.gen('L')
+            sage: Q = V.quotient([L.no(L) - 3/10*L.derivative(2)])       # Lee--Yang
+            sage: U = Q.zhu_algebra_up_to(4).module({'L': 0})
+            sage: M = Q.induced_module_up_to(U, 4, 0).top_quotient()
+            sage: [M.weight_space(d).dimension() for d in range(12)]
+            [1, 0, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4]
+        """
+        from .top_quotient_module import TopQuotientModule
+        return TopQuotientModule(self, implementation)
+
     def some_elements(self):
         r"""
         Some vectors: the nonzero vectors of the basis of the top level (so

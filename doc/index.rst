@@ -85,6 +85,7 @@ Modules
    reference/lattice_vertex_algebra_module
    reference/vertex_algebra_submodule
    reference/quotient_induced_module
+   reference/top_quotient_module
    reference/module_twists
    reference/vertex_algebra_module_morphism
    reference/vertex_algebra_module_ext

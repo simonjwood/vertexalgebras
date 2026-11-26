@@ -3434,6 +3434,31 @@ class InducedModule(_GeneratorActions, VertexAlgebraModule):
         """
         return self.monomial(((), self._U._first_key()))
 
+    def top_quotient(self, implementation=None):
+        r"""
+        The quotient of this module by its largest submodule meeting the top
+        level (for a module induced from a higher Zhu algebra: the degrees
+        up to its level) trivially, computed depth by depth from lowering
+        data; see :class:`~vertex_algebras.top_quotient_module.TopQuotientModule`.
+
+        INPUT:
+
+        - ``implementation`` -- (default: ``None``) ``None``, ``'engine'``
+          or ``'python'``
+
+        EXAMPLES:
+
+        The simple Virasoro module of the Ising model's `\sigma`::
+
+            sage: import vertex_algebras as va
+            sage: V = va.Virasoro(QQ, 1/2, conformal_vector='L')
+            sage: L = V.verma_module(1/16).top_quotient()
+            sage: [L.weight_space(1/16 + d).dimension() for d in range(8)]
+            [1, 1, 1, 2, 2, 3, 4, 5]
+        """
+        from .top_quotient_module import TopQuotientModule
+        return TopQuotientModule(self, implementation)
+
     def _weight_base(self):
         """
         The top weight.
